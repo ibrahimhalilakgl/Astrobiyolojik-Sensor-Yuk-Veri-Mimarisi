@@ -81,6 +81,26 @@ BACKEND_FILES = [
 FRONTEND_SRC_MIRROR = [
     (ROOT / "frontend" / "src" / "App.jsx", "/opt/nirvana/frontend/src/App.jsx"),
     (
+        ROOT / "frontend" / "src" / "components" / "LandingPage.jsx",
+        "/opt/nirvana/frontend/src/components/LandingPage.jsx",
+    ),
+    (
+        ROOT / "frontend" / "src" / "components" / "landing" / "FlowScene3D.jsx",
+        "/opt/nirvana/frontend/src/components/landing/FlowScene3D.jsx",
+    ),
+    (
+        ROOT / "frontend" / "src" / "components" / "landing" / "MarsSimPanels.jsx",
+        "/opt/nirvana/frontend/src/components/landing/MarsSimPanels.jsx",
+    ),
+    (
+        ROOT / "frontend" / "src" / "components" / "landing" / "InstrumentStripViz.jsx",
+        "/opt/nirvana/frontend/src/components/landing/InstrumentStripViz.jsx",
+    ),
+    (
+        ROOT / "frontend" / "src" / "data" / "landingFlow.js",
+        "/opt/nirvana/frontend/src/data/landingFlow.js",
+    ),
+    (
         ROOT / "frontend" / "src" / "hooks" / "useWebSocket.js",
         "/opt/nirvana/frontend/src/hooks/useWebSocket.js",
     ),

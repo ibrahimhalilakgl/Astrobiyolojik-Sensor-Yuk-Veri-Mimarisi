@@ -5,6 +5,7 @@ export default {
     fontFamily: {
       mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
       sans: ['"JetBrains Mono"', 'monospace'],
+      editorial: ['"Cormorant Garamond"', 'Georgia', 'ui-serif', 'serif'],
     },
     extend: {
       colors: {
@@ -37,6 +38,7 @@ export default {
         "slide-up": "slideUp 0.3s ease-out",
         "scan": "scanLine 4s linear infinite",
         "critical": "critical 1.5s ease-in-out infinite",
+        "landing-marquee": "marquee 42s linear infinite",
       },
       keyframes: {
         "pulse-n": {
@@ -62,6 +64,10 @@ export default {
         critical: {
           "0%,100%": { borderColor: "#FF336660" },
           "50%": { borderColor: "#FF3366", boxShadow: "0 0 20px #FF336640" },
+        },
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
         },
       },
     },

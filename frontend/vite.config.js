@@ -14,6 +14,9 @@ export default defineConfig({
           if (id.includes("node_modules/recharts")) {
             return "charts";
           }
+          if (id.includes("node_modules/three") || id.includes("@react-three")) {
+            return "three";
+          }
         },
       },
     },

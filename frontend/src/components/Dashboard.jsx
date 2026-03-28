@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import ConnectionStatus from "./ConnectionStatus";
 import MetricCards from "./MetricCards";
 import AnomalyChart from "./AnomalyChart";
@@ -83,10 +83,10 @@ export default function Dashboard({
       {/* ÜST ÇUBUK */}
       <header className="h-11 shrink-0 flex items-center justify-between px-5" style={{ background: "#060910", borderBottom: "1px solid #0D1520" }}>
         <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-90" title="Ana sayfa">
             <div className="w-1.5 h-4" style={{ background: "#00F2FF", boxShadow: "0 0 8px #00F2FF60" }} />
             <span className="text-base font-extrabold tracking-wider text-glow-cyan" style={{ color: "#00F2FF" }}>NIRVANA_OS</span>
-          </div>
+          </Link>
           <span className="text-xs" style={{ color: "#506070" }}>v1.0.4</span>
           <div className="h-4 w-px" style={{ background: "#1A2535" }} />
           {[

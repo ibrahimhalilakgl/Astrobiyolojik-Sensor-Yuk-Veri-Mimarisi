@@ -305,10 +305,11 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 
 ## 7. Dashboard Sayfaları
 
-Sayfalar **React Router** ile `/sayfa_yolu` adreslerindedir (`/` → `/gosterge_paneli`). Doğrudan URL veya yenilemede nginx’in `try_files $uri $uri/ /index.html;` kullanması gerekir — örnek: `nginx-spa-fragment.conf`.
+Sayfalar **React Router** ile yönetilir. **Ana sayfa** (`/`) 3D veri akışı özeti ve yapay zekâ bölümü içerir; **operasyon paneli** `/gosterge_paneli` ve diğer yollar altındadır. Doğrudan URL veya yenilemede nginx’in `try_files $uri $uri/ /index.html;` kullanması gerekir — örnek: `nginx-spa-fragment.conf`.
 
 | Sayfa | URL yolu | İçerik |
 |-------|----------|--------|
+| ANA_SAYFA | `/` | Yumuşak tema, 3D uçtan uca akış şeması, AI analiz/eğitim özeti; panele geçiş bağlantıları |
 | GÖSTERGE_PANELİ | `/gosterge_paneli` | Metrik kartları, anomali grafiği, bant göstergesi, ham veri akışı tablosu (sütunlarda kanal, TX = iletilmiş) |
 | VERİ_AKIŞI | `/veri_akisi` | 8 adım: pedagojik pipeline (canvas animasyon, hız, ilerleme); canlı `stats_update` metrikleri |
 | ANOMALİ_TESPİT | `/anomali_tespit` | Alarm merkezi — severity filtre, onaylama, detay |

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import useWebSocket from "./hooks/useWebSocket";
 import useAnomalyData from "./hooks/useAnomalyData";
 import Dashboard from "./components/Dashboard";
+import LandingPage from "./components/LandingPage";
 
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/live-feed`;
@@ -44,9 +45,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/gosterge_paneli" replace />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/:sayfa" element={<NirvanaShell />} />
-        <Route path="*" element={<Navigate to="/gosterge_paneli" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
