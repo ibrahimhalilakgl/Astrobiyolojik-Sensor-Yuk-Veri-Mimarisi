@@ -89,6 +89,10 @@ FRONTEND_SRC_MIRROR = [
         "/opt/nirvana/frontend/src/components/landing/FlowScene3D.jsx",
     ),
     (
+        ROOT / "frontend" / "src" / "components" / "landing" / "LandingRoverCanvas.jsx",
+        "/opt/nirvana/frontend/src/components/landing/LandingRoverCanvas.jsx",
+    ),
+    (
         ROOT / "frontend" / "src" / "components" / "landing" / "MarsSimPanels.jsx",
         "/opt/nirvana/frontend/src/components/landing/MarsSimPanels.jsx",
     ),
