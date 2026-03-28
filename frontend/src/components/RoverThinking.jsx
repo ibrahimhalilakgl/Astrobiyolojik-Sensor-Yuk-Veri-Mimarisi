@@ -3,10 +3,12 @@ import { formatTimestamp } from "../utils/formatters";
 
 const TYPE_MS = 80;
 
-function DecisionBox({ decision }) {
+function DecisionBox({ decision, uplinkEligible }) {
   const s = String(decision || "");
-  const isDrop = /\bDROP\b/i.test(s) || /ATLA/i.test(s);
-  const showTx = !isDrop;
+  const hasDrop = /\bDROP\b/i.test(s) || /\bATLA\b/i.test(s);
+  const hasTx = /\bTX\b/i.test(s) || /İLET|ILET/i.test(s);
+  const showTx =
+    hasDrop && hasTx ? false : hasDrop ? false : hasTx ? true : uplinkEligible !== false;
   return (
     <div
       className="mt-4 px-4 py-3 rounded border text-center font-bold uppercase tracking-widest text-sm"
@@ -22,10 +24,38 @@ function DecisionBox({ decision }) {
   );
 }
 
-export default function RoverThinking({ entries = [] }) {
+export default function RoverThinking({ entries = [], stats = null }) {
   const [visibleSteps, setVisibleSteps] = useState([]);
   const [modal, setModal] = useState(null);
+  const [thinkOn, setThinkOn] = useState(stats?.rover_thinking_enabled !== false);
+  const [saving, setSaving] = useState(false);
   const latest = entries[0];
+
+  useEffect(() => {
+    if (typeof stats?.rover_thinking_enabled === "boolean") {
+      setThinkOn(stats.rover_thinking_enabled);
+    }
+  }, [stats?.rover_thinking_enabled]);
+
+  const toggleThinking = async () => {
+    const next = !thinkOn;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/rover-thinking", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        setThinkOn(!!j.enabled);
+      }
+    } catch {
+      /* ağ hatası */
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     const steps = Array.isArray(latest?.steps) ? latest.steps.filter((s) => String(s).trim()) : [];
@@ -40,20 +70,57 @@ export default function RoverThinking({ entries = [] }) {
     return () => clearInterval(id);
   }, [latest?.timestamp, latest?.thinking]);
 
+  const simInt = stats?.simulation_interval_seconds;
+
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1
-          className="text-xl font-black uppercase tracking-[0.2em] animate-pulse"
-          style={{ color: "#00FF88", textShadow: "0 0 20px #00FF8860" }}
+          className={`text-xl font-black uppercase tracking-[0.2em] ${thinkOn ? "animate-pulse" : ""}`}
+          style={{
+            color: thinkOn ? "#00FF88" : "#506070",
+            textShadow: thinkOn ? "0 0 20px #00FF8860" : "none",
+          }}
         >
-          🧠 NIRVANA Düşünüyor...
+          🧠 NIRVANA Düşünce Modu
         </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={toggleThinking}
+            className="px-4 py-2 rounded border text-xs font-bold uppercase tracking-widest transition-all"
+            style={{
+              borderColor: thinkOn ? "#00FF8866" : "#FF336666",
+              background: thinkOn ? "linear-gradient(180deg, #00FF8818, transparent)" : "#1A1014",
+              color: thinkOn ? "#00FF88" : "#FF3366",
+              boxShadow: thinkOn ? "0 0 20px #00FF8830" : "none",
+            }}
+          >
+            {saving ? "…" : thinkOn ? "⏸ Durdur" : "▶ Başlat"}
+          </button>
+          <span className="text-[11px] font-mono uppercase" style={{ color: "#607080" }}>
+            {thinkOn ? "Groq çağrıları açık" : "Groq çağrıları kapalı"}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="rounded-lg border px-4 py-3 text-xs font-mono leading-relaxed"
+        style={{ background: "#080C14", borderColor: "#0D1520", color: "#708090" }}
+      >
+        <p>
+          <span style={{ color: "#00F2FF" }}>Gecikme:</span> Her yüksek skorlu okuma için sunucu, Groq isteğinden önce yaklaşık{" "}
+          <strong style={{ color: "#99AAB8" }}>10 sn</strong> bekler (ortam:{" "}
+          <code className="text-[10px]" style={{ color: "#506070" }}>ROVER_THINK_DELAY_SECONDS</code>). Simülasyon turu aralığı:{" "}
+          <strong style={{ color: "#99AAB8" }}>{simInt != null ? `${simInt} sn` : "—"}</strong>{" "}
+          (<code className="text-[10px]" style={{ color: "#506070" }}>NIRVANA_SIM_INTERVAL_SECONDS</code>).
+        </p>
       </div>
 
       {!latest && (
         <p className="text-sm font-mono" style={{ color: "#506070" }}>
-          Anomali skoru ≥ 50 okumalarında Groq düşünce akışı burada görünür. Bekleniyor…
+          Anomali skoru ≥ 50 okumalarında Groq düşünce akışı burada görünür. Mod kapalıysa yeni çağrı yapılmaz. Bekleniyor…
         </p>
       )}
 
@@ -78,7 +145,7 @@ export default function RoverThinking({ entries = [] }) {
                 <span style={{ color: "#506070" }}>Yenilik:</span>{" "}
                 {latest.is_novel ? "EVET" : "HAYIR"}{" "}
                 {latest.novelty_similarity != null && (
-                  <span style={{ color: "#506070" }}>(sim {Number(latest.novelty_similarity).toFixed(2)})</span>
+                  <span style={{ color: "#506070" }}>(benzerlik {Number(latest.novelty_similarity).toFixed(2)})</span>
                 )}
               </li>
               <li>
@@ -89,7 +156,7 @@ export default function RoverThinking({ entries = [] }) {
                 <span style={{ color: "#506070" }}>Zaman:</span> {formatTimestamp(latest.timestamp)}
               </li>
             </ul>
-            <DecisionBox decision={latest.decision} />
+            <DecisionBox decision={latest.decision} uplinkEligible={latest.uplink_eligible} />
             <p className="text-center text-xs font-mono mt-2" style={{ color: "#607080" }}>
               ⚡ {latest.duration_ms ?? 0}ms — {latest.model ?? "—"}
             </p>
@@ -181,7 +248,7 @@ export default function RoverThinking({ entries = [] }) {
             <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed" style={{ color: "#99AAB8" }}>
               {modal.thinking || "(boş)"}
             </pre>
-            <DecisionBox decision={modal.decision} />
+            <DecisionBox decision={modal.decision} uplinkEligible={modal.uplink_eligible} />
             <p className="text-center text-xs font-mono mt-3" style={{ color: "#506070" }}>
               ⚡ {modal.duration_ms ?? 0}ms — {modal.model ?? "—"}
             </p>

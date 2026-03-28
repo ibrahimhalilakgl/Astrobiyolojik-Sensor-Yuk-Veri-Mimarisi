@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import crud
 from database import get_db
 
-router = APIRouter(prefix="/api/uplink-queue", tags=["Uplink Queue"])
+router = APIRouter(prefix="/api/uplink-queue", tags=["Uplink kuyruğu"])
 
 
 @router.get("")

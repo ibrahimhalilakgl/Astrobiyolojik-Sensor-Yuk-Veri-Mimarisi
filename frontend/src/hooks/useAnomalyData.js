@@ -184,7 +184,7 @@ export default function useAnomalyData(messageBatch) {
 
         case "stats_update": {
           const d = msg.data;
-          setStats(d);
+          setStats((prev) => ({ ...(prev || {}), ...d }));
           const tr = d?.rl_stats?.total_reward;
           if (tr != null && tr !== lastRlRewardRef.current) {
             lastRlRewardRef.current = tr;

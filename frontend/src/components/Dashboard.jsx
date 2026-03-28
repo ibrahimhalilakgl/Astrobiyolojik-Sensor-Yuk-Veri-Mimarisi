@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import ConnectionStatus from "./ConnectionStatus";
 import MetricCards from "./MetricCards";
 import AnomalyChart from "./AnomalyChart";
@@ -12,25 +13,24 @@ import RoverMap from "./RoverMap";
 import Telemetry from "./Telemetry";
 import TransmissionLog from "./TransmissionLog";
 import UplinkQueue from "./UplinkQueue";
-import NasaFeed from "./NasaFeed";
 import OrbiterRelay from "./OrbiterRelay";
 import EarthCloud from "./EarthCloud";
 import RoverThinking from "./RoverThinking";
 
-const NAV = [
-  { id: "dashboard", label: "GÖSTERGE_PANELİ" },
-  { id: "pipeline", label: "VERİ_AKIŞI" },
-  { id: "anomalies", label: "ANOMALİ_TESPİT" },
-  { id: "sensor-detail", label: "SENSÖR_DETAY" },
-  { id: "sensors", label: "TELEMETRİ" },
-  { id: "rover-map", label: "ROVER_HARİTA" },
-  { id: "transmission", label: "İLETİM_ANALİZİ" },
-  { id: "uplink-queue", label: "UPLINK_KUYRUĞU" },
-  { id: "dataset", label: "VERİ_SETİ" },
-  { id: "nasa", label: "NASA_CANLI" },
-  { id: "orbiter", label: "ORBITER_RÖLE" },
-  { id: "earth-cloud", label: "YER_İSTASYONU_BULUT" },
-  { id: "rover-ai", label: "ROVER_ZEKASİ", icon: "🧠" },
+/** URL: /{path} — alt çizgili sayfa adları */
+export const NAV = [
+  { id: "dashboard", path: "gosterge_paneli", label: "GÖSTERGE_PANELİ" },
+  { id: "pipeline", path: "veri_akisi", label: "VERİ_AKIŞI" },
+  { id: "anomalies", path: "anomali_tespit", label: "ANOMALİ_TESPİT" },
+  { id: "sensor-detail", path: "sensor_detay", label: "SENSÖR_DETAY" },
+  { id: "sensors", path: "telemetri", label: "TELEMETRİ" },
+  { id: "rover-map", path: "rover_harita", label: "ROVER_HARİTA" },
+  { id: "transmission", path: "iletim_analizi", label: "İLETİM_ANALİZİ" },
+  { id: "uplink-queue", path: "uplink_kuyrugu", label: "UPLINK_KUYRUĞU" },
+  { id: "dataset", path: "veri_seti", label: "VERİ_SETİ" },
+  { id: "orbiter", path: "orbiter_role", label: "ORBITER_RÖLE" },
+  { id: "earth-cloud", path: "yer_istasyonu_bulut", label: "YER_İSTASYONU_BULUT" },
+  { id: "rover-ai", path: "rover_zekasi", label: "ROVER_ZEKASİ", icon: "🧠" },
 ];
 
 export default function Dashboard({
@@ -47,7 +47,17 @@ export default function Dashboard({
   rlRewardSeries,
   roverThinking,
 }) {
-  const [active, setActive] = useState("dashboard");
+  const { sayfa } = useParams();
+  const navigate = useNavigate();
+  const active =
+    NAV.find((n) => n.path === sayfa)?.id ?? "dashboard";
+
+  useEffect(() => {
+    if (!sayfa || !NAV.some((n) => n.path === sayfa)) {
+      navigate("/gosterge_paneli", { replace: true });
+    }
+  }, [sayfa, navigate]);
+
   const sol = stats?.rover?.sol ?? "—";
   const lat = stats?.rover?.lat ?? "—";
   const lon = stats?.rover?.lon ?? "—";
@@ -80,13 +90,13 @@ export default function Dashboard({
           <span className="text-xs" style={{ color: "#506070" }}>v1.0.4</span>
           <div className="h-4 w-px" style={{ background: "#1A2535" }} />
           {[
-            { label: "SENSÖRLER", page: "sensor-detail" },
-            { label: "ANALİZ", page: "anomalies" },
-            { label: "HARİTA", page: "rover-map" },
+            { label: "SENSÖRLER", path: "sensor_detay" },
+            { label: "ANALİZ", path: "anomali_tespit" },
+            { label: "HARİTA", path: "rover_harita" },
           ].map(t => {
-            const on = active === t.page;
+            const on = sayfa === t.path;
             return (
-              <button key={t.label} onClick={() => setActive(t.page)} className="text-xs font-bold uppercase tracking-widest px-2.5 py-1 transition-all" style={{
+              <button key={t.label} type="button" onClick={() => navigate(`/${t.path}`)} className="text-xs font-bold uppercase tracking-widest px-2.5 py-1 transition-all" style={{
                 color: on ? "#FF00FF" : "#607080",
                 borderBottom: on ? "2px solid #FF00FF" : "2px solid transparent",
                 textShadow: on ? "0 0 10px #FF00FF40" : "none",
@@ -118,7 +128,7 @@ export default function Dashboard({
             {NAV.map(item => {
               const on = active === item.id;
               return (
-                <button key={item.id} onClick={() => setActive(item.id)}
+                <button key={item.id} type="button" onClick={() => navigate(`/${item.path}`)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium tracking-wide transition-all duration-200"
                   style={{
                     background: on ? "linear-gradient(90deg, #00F2FF10, transparent)" : "transparent",
@@ -195,8 +205,9 @@ export default function Dashboard({
             {active === "sensors" && <Telemetry readings={readings} />}
             {active === "transmission" && <TransmissionLog stats={stats} />}
             {active === "uplink-queue" && <UplinkQueue statsQueue={stats?.uplink_queue} />}
-            {active === "nasa" && <NasaFeed />}
-            {active === "orbiter" && <OrbiterRelay orbiterStats={orbiterStats} />}
+            {active === "orbiter" && (
+              <OrbiterRelay orbiterStats={orbiterStats} stats={stats} />
+            )}
             {active === "earth-cloud" && (
               <EarthCloud
                 modelUpdates={modelUpdates}
@@ -204,7 +215,9 @@ export default function Dashboard({
                 stats={stats}
               />
             )}
-            {active === "rover-ai" && <RoverThinking entries={roverThinking || []} />}
+            {active === "rover-ai" && (
+              <RoverThinking entries={roverThinking || []} stats={stats} />
+            )}
           </div>
 
           <footer className="min-h-7 shrink-0 flex flex-wrap items-center px-5 gap-x-8 gap-y-1 py-1 text-xs font-mono" style={{ background: "#060910", borderTop: "1px solid #0D1520" }}>

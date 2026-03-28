@@ -8,7 +8,7 @@ import crud
 from database import get_db
 from schemas import SensorReadingResponse, SensorStats
 
-router = APIRouter(prefix="/api/sensor-data", tags=["Sensor Data"])
+router = APIRouter(prefix="/api/sensor-data", tags=["Sensör verisi"])
 
 
 @router.get("", response_model=list[SensorReadingResponse])
@@ -40,7 +40,7 @@ async def get_sensor_reading(
 ):
     reading = await crud.get_sensor_reading_by_id(db, reading_id)
     if not reading:
-        raise HTTPException(status_code=404, detail="Sensor reading not found")
+        raise HTTPException(status_code=404, detail="Sensör okuması bulunamadı")
     return reading
 
 

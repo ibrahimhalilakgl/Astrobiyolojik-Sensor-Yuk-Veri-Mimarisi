@@ -6,7 +6,7 @@ const LSTM_PARAMS = [
   { key: "EPOCHS", val: "35" },
   { key: "DROPOUT", val: "0.3" },
   { key: "OPTIMİZER", val: "Adam" },
-  { key: "LOSS", val: "MSE (Mean Squared Error)" },
+  { key: "LOSS", val: "MSE (kare ortalama hata)" },
   { key: "SEQUENCE_LENGTH", val: "250 timestep" },
   { key: "WINDOW_SIZE", val: "30" },
   { key: "SMOOTHING", val: "%5" },
@@ -76,21 +76,21 @@ export default function DatasetInfo() {
             <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#607080" }}>MODEL_PERFORMANSI</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>PRECİSİON</p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>HASSASİYET</p>
                 <p className="text-4xl font-extrabold mt-2" style={{ color: "#00FF88", textShadow: "0 0 16px #00FF8840" }}>%88.4</p>
                 <p className="text-xs mt-1" style={{ color: "#506070" }}>84 TP / (84 TP + 11 FP)</p>
               </div>
               <div className="text-center p-4" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>RECALL</p>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>DUYARLILIK</p>
                 <p className="text-4xl font-extrabold mt-2" style={{ color: "#00F2FF", textShadow: "0 0 16px #00F2FF40" }}>%80.0</p>
                 <p className="text-xs mt-1" style={{ color: "#506070" }}>84 TP / (84 TP + 21 FN)</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 mt-4">
               {[
-                { l: "TRUE_POSİTİVE", v: "84", c: "#00FF88" },
-                { l: "FALSE_POSİTİVE", v: "11", c: "#FFAA00" },
-                { l: "FALSE_NEGATİVE", v: "21", c: "#FF3366" },
+                { l: "DOĞRU_POZİTİF", v: "84", c: "#00FF88" },
+                { l: "YANLIŞ_POZİTİF", v: "11", c: "#FFAA00" },
+                { l: "YANLIŞ_NEGATİF", v: "21", c: "#FF3366" },
               ].map(m => (
                 <div key={m.l} className="text-center p-3" style={{ background: "#050810", border: "1px solid #0D1520" }}>
                   <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#506070" }}>{m.l}</p>
@@ -105,7 +105,7 @@ export default function DatasetInfo() {
             <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>ANOMALİ_TESPİT_ALGORİTMASI</p>
             <div className="space-y-2 text-sm" style={{ color: "#8899AA" }}>
               <p><span style={{ color: "#00F2FF" }}>1.</span> LSTM modeli geçmiş telemetri verisinden gelecek değeri tahmin eder</p>
-              <p><span style={{ color: "#00F2FF" }}>2.</span> Tahmin hatası (prediction error) hesaplanır: <span style={{ color: "#FF00FF" }}>e = |y - ŷ|</span></p>
+              <p><span style={{ color: "#00F2FF" }}>2.</span> Tahmin hatası hesaplanır: <span style={{ color: "#FF00FF" }}>e = |y - ŷ|</span></p>
               <p><span style={{ color: "#00F2FF" }}>3.</span> Hatalar üstel düzeltme ile smoothed_error'a dönüştürülür</p>
               <p><span style={{ color: "#00F2FF" }}>4.</span> Dinamik eşik belirlenir (nonparametric thresholding)</p>
               <p><span style={{ color: "#00F2FF" }}>5.</span> Eşiği aşan bölgeler anomali olarak işaretlenir</p>

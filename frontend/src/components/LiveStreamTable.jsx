@@ -27,7 +27,7 @@ export default function LiveStreamTable({ readings }) {
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: "1px solid #0F1923" }}>
-              {["ZAMAN", "KANAL", "SENSÖR", "DEĞER", "BİRİM", "SKOR", "DURUM", "TX"].map((h, i) => (
+              {["ZAMAN", "KANAL", "SENSÖR", "DEĞER", "BİRİM", "SKOR", "DURUM", "İLETİM"].map((h, i) => (
                 <th key={h} className={`py-3 px-4 text-xs font-bold uppercase tracking-wider ${i === 3 || i === 5 ? "text-right" : i >= 6 ? "text-center" : "text-left"}`}
                   style={{ color: "#607080" }}>{h}</th>
               ))}
@@ -58,7 +58,7 @@ export default function LiveStreamTable({ readings }) {
                   <td className="py-3 px-4 text-center text-sm font-bold" style={{
                     color: r.is_transmitted ? "#00FF88" : "#2A3A4D",
                     textShadow: r.is_transmitted ? "0 0 8px #00FF8840" : "none",
-                  }}>{r.is_transmitted ? "TX" : "—"}</td>
+                  }}>{r.is_transmitted ? "İLET" : "—"}</td>
                 </tr>
               );
             })}

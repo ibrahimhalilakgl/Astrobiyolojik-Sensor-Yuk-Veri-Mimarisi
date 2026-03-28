@@ -5,7 +5,7 @@ import crud
 from database import get_db
 from schemas import OrbiterRelayLogResponse
 
-router = APIRouter(prefix="/api/orbiter-log", tags=["Orbiter"])
+router = APIRouter(prefix="/api/orbiter-log", tags=["Orbiter günlüğü"])
 
 
 @router.get("", response_model=list[OrbiterRelayLogResponse])

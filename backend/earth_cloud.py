@@ -43,3 +43,13 @@ class EarthCloudSimulator:
 
     def apply_to_rl(self, rl: "RLAgent", threshold_suggestion: float) -> None:
         rl.apply_earth_feedback(threshold_suggestion)
+
+    def get_dashboard_state(self, every_n: int = 20) -> Dict[str, Any]:
+        pending = self._orbiter_batches_since_cloud
+        return {
+            "model_version": self._model_version_counter,
+            "federated_round": self._federated_round,
+            "orbiter_batches_since_cloud": pending,
+            "batches_until_cloud_sync": max(0, every_n - pending),
+            "cloud_sync_every_n_batches": every_n,
+        }

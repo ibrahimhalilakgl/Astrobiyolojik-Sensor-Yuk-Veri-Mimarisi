@@ -13,7 +13,7 @@ from schemas import (
     SensorReadingResponse,
 )
 
-router = APIRouter(prefix="/api/anomalies", tags=["Anomalies"])
+router = APIRouter(prefix="/api/anomalies", tags=["Anomaliler"])
 
 
 @router.get("", response_model=list[AnomalyEventResponse])
@@ -48,7 +48,7 @@ async def anomaly_detail(
 ):
     row = await crud.get_anomaly_with_reading(db, anomaly_id)
     if not row:
-        raise HTTPException(status_code=404, detail="Anomaly event not found")
+        raise HTTPException(status_code=404, detail="Anomali kaydı bulunamadı")
     event, reading = row
     base = AnomalyEventResponse.model_validate(event)
     detail = AnomalyEventDetailResponse(
@@ -65,6 +65,6 @@ async def acknowledge_anomaly(
 ):
     event = await crud.acknowledge_anomaly(db, anomaly_id)
     if not event:
-        raise HTTPException(status_code=404, detail="Anomaly event not found")
+        raise HTTPException(status_code=404, detail="Anomali kaydı bulunamadı")
     await db.commit()
     return event

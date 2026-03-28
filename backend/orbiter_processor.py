@@ -86,10 +86,18 @@ class OrbiterProcessor:
             if self._latency_samples
             else 0.0
         )
+        now = time.monotonic()
+        elapsed = now - self._window_start
+        remaining = max(0.0, self.window_seconds - elapsed)
         return {
             "packets_received": self._total_received,
             "packets_forwarded": self._total_forwarded,
+            "packets_dropped_secondary": self._total_dropped_secondary,
             "drop_rate": round(min(1.0, drop_r), 4),
             "avg_relay_latency_ms": round(avg_lat, 2),
             "last_pass_id": self._last_pass_id,
+            "window_seconds": self.window_seconds,
+            "buffer_pending": len(self._buffer),
+            "window_elapsed_sec": round(elapsed, 2),
+            "window_remaining_sec": round(remaining, 2),
         }

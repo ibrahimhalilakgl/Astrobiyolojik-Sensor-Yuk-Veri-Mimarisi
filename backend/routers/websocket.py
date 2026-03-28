@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-router = APIRouter(tags=["WebSocket"])
+router = APIRouter(tags=["WebSocket canlı akış"])
 
 active_connections: Set[WebSocket] = set()
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pickle
 import random
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _Q_PATH = _DATA_DIR / "rl_qtable.pkl"

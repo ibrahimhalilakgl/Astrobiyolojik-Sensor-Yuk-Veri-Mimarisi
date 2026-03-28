@@ -42,7 +42,7 @@ export default function Telemetry({ readings }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>TELEMETRİ_PANELI</p>
+          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>TELEMETRİ_PANOSU</p>
           <p className="text-sm mt-1" style={{ color: "#708090" }}>Tüm sensörlerden gelen anlık telemetri verisi akışı</p>
         </div>
         <div className="flex gap-1">

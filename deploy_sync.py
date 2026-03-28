@@ -47,12 +47,20 @@ BACKEND_FILES = [
         "/opt/nirvana/backend/routers/model_updates.py",
     ),
     (
+        ROOT / "backend" / "routers" / "settings.py",
+        "/opt/nirvana/backend/routers/settings.py",
+    ),
+    (
         ROOT / "backend" / "routers" / "websocket.py",
         "/opt/nirvana/backend/routers/websocket.py",
     ),
     (
         ROOT / "backend" / "routers" / "sensor_data.py",
         "/opt/nirvana/backend/routers/sensor_data.py",
+    ),
+    (
+        ROOT / "backend" / "routers" / "uplink_queue.py",
+        "/opt/nirvana/backend/routers/uplink_queue.py",
     ),
     (ROOT / "backend" / "requirements.txt", "/opt/nirvana/backend/requirements.txt"),
     (
@@ -115,10 +123,6 @@ FRONTEND_SRC_MIRROR = [
     (
         ROOT / "frontend" / "src" / "components" / "PipelineAnimation.jsx",
         "/opt/nirvana/frontend/src/components/PipelineAnimation.jsx",
-    ),
-    (
-        ROOT / "frontend" / "src" / "components" / "NasaFeed.jsx",
-        "/opt/nirvana/frontend/src/components/NasaFeed.jsx",
     ),
     (
         ROOT / "frontend" / "src" / "components" / "OrbiterRelay.jsx",

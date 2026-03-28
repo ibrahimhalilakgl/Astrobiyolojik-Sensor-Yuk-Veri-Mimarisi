@@ -1,10 +1,12 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import useWebSocket from "./hooks/useWebSocket";
 import useAnomalyData from "./hooks/useAnomalyData";
 import Dashboard from "./components/Dashboard";
 
-const WS_URL = `ws://${window.location.hostname}:${window.location.port}/ws/live-feed`;
+const WS_PROTOCOL = window.location.protocol === "https:" ? "wss:" : "ws:";
+const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/live-feed`;
 
-export default function App() {
+function NirvanaShell() {
   const { status, messageBatch } = useWebSocket(WS_URL);
   const {
     readings,
@@ -35,5 +37,17 @@ export default function App() {
       onAcknowledge={acknowledgeAnomaly}
       appendAnomaliesFromApi={appendAnomaliesFromApi}
     />
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/gosterge_paneli" replace />} />
+        <Route path="/:sayfa" element={<NirvanaShell />} />
+        <Route path="*" element={<Navigate to="/gosterge_paneli" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 import uuid
 import random
 from collections import defaultdict, deque
@@ -10,6 +12,8 @@ import numpy as np
 import rover_ai
 from compressor import compress_readings_delta_deflate
 from routers.websocket import broadcast
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from energy_controller import EnergyController
@@ -65,6 +69,101 @@ class EdgeProcessor:
         self._novelty_vecs: deque = deque(maxlen=_NOVELTY_MAX)
         self._last_rl_state: Optional[Tuple[float, float, bool]] = None
         self._last_rl_action_idx: int = 1
+        self._rover_think_sem = asyncio.Semaphore(2)
+        self.rover_thinking_enabled: bool = True
+
+    def _schedule_rover_think(
+        self,
+        reading: dict,
+        processed: List[dict],
+        adj: int,
+        action_idx: int,
+        energy_level: float,
+    ) -> None:
+        if not self.rover_thinking_enabled:
+            return
+        task = asyncio.create_task(
+            self._rover_think_background(reading, processed, adj, action_idx, energy_level)
+        )
+
+        def _log_fail(t: asyncio.Task) -> None:
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception("rover_think_background failed")
+
+        task.add_done_callback(_log_fail)
+
+    async def _rover_think_background(
+        self,
+        reading: dict,
+        processed: List[dict],
+        adj: int,
+        action_idx: int,
+        energy_level: float,
+    ) -> None:
+        if not self.rover_thinking_enabled:
+            return
+        delay = max(0.0, min(120.0, float(os.getenv("ROVER_THINK_DELAY_SECONDS", "10"))))
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+        rl_labels = {0: "eşik Δ-5", 1: "eşik nötr", 2: "eşik Δ+5"}
+        ch = str(reading.get("_chan_id") or reading.get("channel_id") or reading["sensor_type"])
+        anomaly_type = self._detect_anomaly_type(reading, processed)
+        pri = PRIORITY_MAP.get(anomaly_type, 4)
+        if reading.get("is_novel"):
+            pri = min(10, pri + 2)
+        rl_suggestion = f"RL Δ={adj} — {rl_labels.get(action_idx, f'eylem_{action_idx}')}"
+        ctx = {
+            "channel_id": ch,
+            "sensor_type": reading["sensor_type"],
+            "raw_value": reading["raw_value"],
+            "anomaly_score": reading["anomaly_score"],
+            "river_score": reading.get("_river_score", 0),
+            "lstm_score": reading.get("_lstm_score", 0),
+            "is_novel": bool(reading.get("is_novel")),
+            "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
+            "energy_level": energy_level,
+            "rl_suggestion": rl_suggestion,
+            "scientific_priority": int(pri),
+            "anomaly_type": anomaly_type,
+            "uplink_eligible": bool(reading.get("_uplink_eligible")),
+        }
+        async with self._rover_think_sem:
+            try:
+                out = await asyncio.wait_for(rover_ai.think(ctx), timeout=10.0)
+            except asyncio.TimeoutError:
+                out = {
+                    "thinking": "AI thinking devre dışı",
+                    "steps": [],
+                    "decision": "TX" if reading.get("_uplink_eligible") else "DROP",
+                    "duration_ms": 0,
+                    "model": "fallback",
+                }
+        ts = datetime.now(timezone.utc).isoformat()
+        uplink_ok = bool(reading.get("_uplink_eligible"))
+        await broadcast(
+            {
+                "type": "rover_thinking",
+                "data": {
+                    "channel_id": ch,
+                    "anomaly_score": float(reading["anomaly_score"]),
+                    "thinking": out.get("thinking", ""),
+                    "steps": out.get("steps") or [],
+                    "decision": out.get("decision", "TX"),
+                    "duration_ms": int(out.get("duration_ms", 0)),
+                    "model": out.get("model", "fallback"),
+                    "timestamp": ts,
+                    "is_novel": bool(reading.get("is_novel")),
+                    "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
+                    "energy_level": round(energy_level, 1),
+                    "uplink_eligible": uplink_ok,
+                },
+            }
+        )
 
     def _update_history(self, sensor_type: str, value: float) -> None:
         self._history[sensor_type].append(value)
@@ -239,61 +338,11 @@ class EdgeProcessor:
                 }
             )
 
-        rl_labels = {0: "eşik Δ-5", 1: "eşik nötr", 2: "eşik Δ+5"}
         energy_level = float(self._energy.get_battery_level()) if self._energy else 50.0
         for reading in processed:
             if float(reading.get("anomaly_score", 0)) < 50:
                 continue
-            ch = str(reading.get("_chan_id") or reading.get("channel_id") or reading["sensor_type"])
-            anomaly_type = self._detect_anomaly_type(reading, processed)
-            pri = PRIORITY_MAP.get(anomaly_type, 4)
-            if reading.get("is_novel"):
-                pri = min(10, pri + 2)
-            rl_suggestion = f"RL Δ={adj} — {rl_labels.get(action_idx, f'eylem_{action_idx}')}"
-            ctx = {
-                "channel_id": ch,
-                "sensor_type": reading["sensor_type"],
-                "raw_value": reading["raw_value"],
-                "anomaly_score": reading["anomaly_score"],
-                "river_score": reading.get("_river_score", 0),
-                "lstm_score": reading.get("_lstm_score", 0),
-                "is_novel": bool(reading.get("is_novel")),
-                "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
-                "energy_level": energy_level,
-                "rl_suggestion": rl_suggestion,
-                "scientific_priority": int(pri),
-                "anomaly_type": anomaly_type,
-                "uplink_eligible": bool(reading.get("_uplink_eligible")),
-            }
-            try:
-                out = await asyncio.wait_for(rover_ai.think(ctx), timeout=10.0)
-            except asyncio.TimeoutError:
-                out = {
-                    "thinking": "AI thinking devre dışı",
-                    "steps": [],
-                    "decision": "TX" if reading.get("_uplink_eligible") else "DROP",
-                    "duration_ms": 0,
-                    "model": "fallback",
-                }
-            ts = datetime.now(timezone.utc).isoformat()
-            await broadcast(
-                {
-                    "type": "rover_thinking",
-                    "data": {
-                        "channel_id": ch,
-                        "anomaly_score": float(reading["anomaly_score"]),
-                        "thinking": out.get("thinking", ""),
-                        "steps": out.get("steps") or [],
-                        "decision": out.get("decision", "TX"),
-                        "duration_ms": int(out.get("duration_ms", 0)),
-                        "model": out.get("model", "fallback"),
-                        "timestamp": ts,
-                        "is_novel": bool(reading.get("is_novel")),
-                        "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
-                        "energy_level": round(energy_level, 1),
-                    },
-                }
-            )
+            self._schedule_rover_think(reading, processed, adj, action_idx, energy_level)
 
         self._last_payload_serialized = 0
         self._last_payload_compressed = 0

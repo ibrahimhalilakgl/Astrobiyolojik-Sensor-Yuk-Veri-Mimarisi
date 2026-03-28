@@ -12,6 +12,17 @@ import { formatTimestamp, severityColor } from "../utils/formatters";
 
 const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
+const SEV_LABEL_TR = {
+  CRITICAL: "KRİTİK",
+  HIGH: "YÜKSEK",
+  MEDIUM: "ORTA",
+  LOW: "DÜŞÜK",
+};
+
+function severityLabelTr(sev) {
+  return SEV_LABEL_TR[sev] || sev;
+}
+
 const ANOM_TR = {
   organic_molecule: "ORGANİK_MOLEKÜL",
   methane_spike: "METAN_ARTIŞI",
@@ -368,7 +379,7 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
                 >
                   {s === "ALL"
                     ? `ŞİDDET: TÜMÜ (${counts.ALL})`
-                    : `${s} (${counts[s] || 0})`}
+                    : `${severityLabelTr(s)} (${counts[s] || 0})`}
                 </button>
               );
             })}
@@ -440,7 +451,7 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
                             boxShadow: `0 0 8px ${ss.text}08`,
                           }}
                         >
-                          {a.severity}
+                          {severityLabelTr(a.severity)}
                         </span>
                         <span
                           className="text-sm font-bold uppercase tracking-wide"
@@ -472,7 +483,7 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span className="text-xs font-mono" style={{ color: "#3A4A5C" }}>
-                          reading_id: {shortUuid(a.reading_id)}
+                          okuma_kimliği: {shortUuid(a.reading_id)}
                         </span>
                         <button
                           type="button"
@@ -514,10 +525,10 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
                                 <span style={{ color: "#00F2FF" }}>
                                   {detail.reading.sensor_type}
                                 </span>{" "}
-                                raw={detail.reading.raw_value}{" "}
+                                ham={detail.reading.raw_value}{" "}
                                 {detail.reading.unit} · skor{" "}
                                 {detail.reading.anomaly_score} · SOL{" "}
-                                {detail.reading.sol} · TX:{" "}
+                                {detail.reading.sol} · iletim:{" "}
                                 {detail.reading.is_transmitted ? "evet" : "hayır"}
                               </p>
                             </>

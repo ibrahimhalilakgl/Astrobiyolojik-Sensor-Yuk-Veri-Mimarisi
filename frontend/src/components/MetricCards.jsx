@@ -29,7 +29,7 @@ export default function MetricCards({ stats }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card label="TOPLAM_ANOMALİ" value={stats.total_anomalies ?? 0} sub="Tespit edilen anomali sayısı" color="#FF3366" />
-        <Card label="BANT_TASARRUFU" value={`%${formatNumber(stats.bandwidth_saved_percent)}`} sub="Edge processing kazancı" color="#00FF88" />
+        <Card label="BANT_TASARRUFU" value={`%${formatNumber(stats.bandwidth_saved_percent)}`} sub="Uçta işlemle elde edilen bant genişliği kazancı" color="#00FF88" />
         <Card label="İŞLENEN_PAKET" value={(stats.total_packets ?? stats.total_readings ?? 0).toLocaleString("tr-TR")} sub="Toplam sensör okuması" color="#00F2FF" />
         <div className="n-hud p-5" style={{ background: "linear-gradient(135deg, #080C14, #060910)" }}>
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>EN_YÜKSEK_ÖNCELİK</p>
@@ -44,9 +44,9 @@ export default function MetricCards({ stats }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card
-          label="ONLINE_MODEL (RIVER)"
+          label="ÇEVRİMİÇİ_MODEL (RIVER)"
           value={rs?.n_samples_seen ?? "—"}
-          sub={`v${rs?.model_version ?? "—"} · River HalfSpaceTrees`}
+          sub={`sürüm ${rs?.model_version ?? "—"} · River HalfSpaceTrees (çevrimiçi ağaçlar)`}
           color="#7000FF"
         />
         <Card
@@ -56,9 +56,9 @@ export default function MetricCards({ stats }) {
           color="#FFB800"
         />
         <Card
-          label="RL_AGENT"
+          label="PEKIŞTİRMELİ_AJAN"
           value={rls?.total_reward ?? "—"}
-          sub={rls != null ? `ε ${rls.epsilon} · adım ${rls.steps} · Q ${rls.q_table_size}` : "—"}
+          sub={rls != null ? `ε ${rls.epsilon} · adım ${rls.steps} · Q-tablo ${rls.q_table_size}` : "—"}
           color="#00FF88"
         />
       </div>

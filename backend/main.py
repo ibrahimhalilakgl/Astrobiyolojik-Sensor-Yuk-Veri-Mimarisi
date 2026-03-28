@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from routers import (
     nasa,
     orbiter as orbiter_router,
     sensor_data,
+    settings as settings_router,
     uplink_queue,
     websocket as ws_router,
 )
@@ -26,6 +28,19 @@ from simulator import generate_sensor_readings, get_rover_state
 import crud
 
 logger = logging.getLogger(__name__)
+
+# Domain yok — IP ile test sunucusu; tarayıcı origin’i CORS’ta tanımlı olmalı
+_DEFAULT_CORS = (
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:8000,http://127.0.0.1:8000,"
+    "http://37.247.101.197"
+)
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", _DEFAULT_CORS)
+CORS_ALLOW_ORIGINS = [x.strip() for x in _cors_env.split(",") if x.strip()]
+
+SIMULATION_INTERVAL_SEC = max(
+    1.0, min(120.0, float(os.getenv("NIRVANA_SIM_INTERVAL_SECONDS", "10")))
+)
 
 river = RiverLearner()
 energy = EnergyController()
@@ -57,7 +72,7 @@ async def simulation_loop() -> None:
             for event in anomaly_events:
                 await broadcast({"type": "anomaly_alert", "data": event})
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(SIMULATION_INTERVAL_SEC)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -92,6 +107,10 @@ async def stats_broadcast_loop() -> None:
                         "river_stats": river.get_model_stats(),
                         "energy_stats": energy.get_energy_stats(),
                         "rl_stats": rl.get_rl_stats(),
+                        "rover_thinking_enabled": processor.rover_thinking_enabled,
+                        "simulation_interval_seconds": SIMULATION_INTERVAL_SEC,
+                        "earth_cloud_state": earth.get_dashboard_state(),
+                        "orbiter_stats": orb.get_ws_stats(),
                     },
                 }
             )
@@ -189,32 +208,38 @@ async def lifespan(app: FastAPI):
     orbiter_task = asyncio.create_task(orbiter_drain_loop())
     earth_task = asyncio.create_task(earth_sync_loop())
     yield
-    for t in (
+    bg_tasks = (
         sim_task,
         stats_task,
         uplink_task,
         energy_task,
         orbiter_task,
         earth_task,
-    ):
+    )
+    for t in bg_tasks:
         t.cancel()
+    await asyncio.gather(*bg_tasks, return_exceptions=True)
 
 
 app = FastAPI(
     title="Nirvana — Astrobiyolojik Sensör Yükü Veri Mimarisi API",
-    description="Mars rover simülasyonundan gelen edge-processed sensör verisi",
+    description=(
+        "Mars rover simülasyonundan gelen uçta işlenmiş sensör verisi; "
+        "WebSocket canlı akış, uplink kuyruğu, orbiter rölesi ve federatif bulut senkronu."
+    ),
     version="1.0.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(settings_router.router)
 app.include_router(sensor_data.router)
 app.include_router(anomalies.router)
 app.include_router(uplink_queue.router)

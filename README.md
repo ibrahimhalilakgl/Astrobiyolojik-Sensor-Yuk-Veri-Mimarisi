@@ -1,6 +1,6 @@
 # NIRVANA — Astrobiyolojik Sensör Yükü Veri Mimarisi
 
-> NASA **SMAP/MSL Anomaly Detection** veri setindeki MSL (Curiosity) kanallarından gelen telemetriyi **sıralı replay** ile üreten; uçta (edge) anomali skoru, öncelik, sıkıştırma ve **uplink kuyruğu** ile işleyen; PostgreSQL + WebSocket üzerinden ground station dashboard’unda canlı gösteren web uygulaması. Anomali skorunda veri setinin **önceden hesaplanmış LSTM smoothed error** (`.npy`) değerleri kullanılır; çalışma zamanında **TensorFlow/Keras veya `.h5` model yükleme yoktur**. İsteğe bağlı olarak [NASA Open APIs](https://api.nasa.gov/) (APOD, Mars Rover Photos) backend proxy ile **NASA_CANLI** sayfasında gösterilir.
+> NASA **SMAP/MSL Anomaly Detection** veri setindeki MSL (Curiosity) kanallarından gelen telemetriyi **sıralı replay** ile üreten; uçta (edge) anomali skoru, öncelik, sıkıştırma ve **uplink kuyruğu** ile işleyen; PostgreSQL + WebSocket üzerinden ground station dashboard’unda canlı gösteren web uygulaması. Anomali skorunda veri setinin **önceden hesaplanmış LSTM smoothed error** (`.npy`) değerleri kullanılır; çalışma zamanında **TensorFlow/Keras veya `.h5` model yükleme yoktur**. Backend’de isteğe bağlı [NASA Open API](https://api.nasa.gov/) proxy uçları (`/api/nasa/*`) bulunur; arayüzde ayrı bir NASA canlı sayfası yoktur.
 
 ---
 
@@ -16,9 +16,10 @@ Bu proje, **NASA SMAP/MSL Anomaly Detection veri setindeki** MSL (Curiosity) tel
 6. **DSN iletimi + uplink kuyruğu** — Yüksek öncelikli okumalar `uplink_queue` tablosunda bekletilir; `uplink_drain_loop` periyodik olarak sınırlı sayıda paket “gönderilir” ve WebSocket ile güncellenir
 7. **Ground station dashboard** — Gerçek zamanlı WebSocket ile canlı gösterim
 8. **VERİ_AKIŞI ekranı** — 8 adımlı uçtan uca pipeline animasyonu (ayarlanabilir hız, ilerleme çubuğu, canlı `stats_update` metrikleri)
-9. **NASA_CANLI (isteğe bağlı)** — `NASA_API_KEY` tanımlıysa APOD ve Mars fotoğrafları (manifest ile son N görsel veya tarih/sol filtresi).
 
 Bu liste, hackathon konusuyla uyumlu **uçtan uca edge + ground station** akışının yazılım prototipidir; canlı Mars bağlantısı veya uçta Keras çıkarımı içermez.
+
+**Arayüz ve API belgeleri:** React panelleri ve OpenAPI (`/docs`) etiketleri Türkçe birincil dildir; sensör tipleri, JSON alan adları ve makine okumalı uçlar (ör. `GET /health`) uluslararası kısaltmalarla uyumludur.
 
 ### 1.1 Metodoloji, şeffaflık ve veri modeli
 
@@ -296,26 +297,30 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 | GET | `/api/nasa/mars-photos-recent/{rover}` | Manifest’ten en güncel sol’lara göre son N fotoğraf (`limit`) |
 | GET | `/api/orbiter-log` | Orbiter relay log kayıtları |
 | GET | `/api/model-updates` | Earth/Cloud simülasyonu `model_updates` geçmişi |
+| GET | `/api/settings/rover-thinking` | Groq düşünce modu açık/kapalı |
+| PATCH | `/api/settings/rover-thinking` | Gövde: `{"enabled": true}` veya `false` — düşünce çağrılarını durdur/başlat |
 | WS | `/ws/live-feed` | Gerçek zamanlı akış (aşağıdaki mesaj tipleri) |
 
 ---
 
 ## 7. Dashboard Sayfaları
 
-| Sayfa | İçerik |
-|-------|--------|
-| GÖSTERGE_PANELİ | Metrik kartları, anomali grafiği, bant göstergesi, ham veri akışı tablosu (sütunlarda kanal, TX = iletilmiş) |
-| VERİ_AKIŞI | 8 adım: pedagojik pipeline (canvas animasyon, hız, ilerleme); canlı `stats_update` metrikleri |
-| ANOMALİ_TESPİT | Alarm merkezi — severity filtre, onaylama, detay |
-| SENSÖR_DETAY | Sensör bazlı özet ve anomali bağlamı |
-| TELEMETRİ | Canlı telemetri görünümü |
-| ROVER_HARİTA | Rover konum / harita bağlamı |
-| İLETİM_ANALİZİ | Paket iletimi, bant tasarrufu, delta + DEFLATE özeti |
-| UPLINK_KUYRUĞU | Bekleyen / gönderilen uplink kuyruğu (`stats.uplink_queue`) |
-| ORBITER_RÖLE | Orbiter Edge2: kuyruk, 30 sn pencere, düşük skor (eşik 40) paket düşürme, `orbiter_stats` |
-| YER_İSTASYONU_BULUT | Earth/Cloud: 20 relay batch sonrası `model_update`, RL epsilon geri beslemesi |
-| VERİ_SETİ | Veri seti bilgi paneli |
-| NASA_CANLI | APOD + Mars rover fotoğrafları (varsayılan: son 50 görsel; isteğe bağlı dünya tarihi) |
+Sayfalar **React Router** ile `/sayfa_yolu` adreslerindedir (`/` → `/gosterge_paneli`). Doğrudan URL veya yenilemede nginx’in `try_files $uri $uri/ /index.html;` kullanması gerekir — örnek: `nginx-spa-fragment.conf`.
+
+| Sayfa | URL yolu | İçerik |
+|-------|----------|--------|
+| GÖSTERGE_PANELİ | `/gosterge_paneli` | Metrik kartları, anomali grafiği, bant göstergesi, ham veri akışı tablosu (sütunlarda kanal, TX = iletilmiş) |
+| VERİ_AKIŞI | `/veri_akisi` | 8 adım: pedagojik pipeline (canvas animasyon, hız, ilerleme); canlı `stats_update` metrikleri |
+| ANOMALİ_TESPİT | `/anomali_tespit` | Alarm merkezi — severity filtre, onaylama, detay |
+| SENSÖR_DETAY | `/sensor_detay` | Sensör bazlı özet ve anomali bağlamı |
+| TELEMETRİ | `/telemetri` | Canlı telemetri görünümü |
+| ROVER_HARİTA | `/rover_harita` | Rover konum / harita bağlamı |
+| İLETİM_ANALİZİ | `/iletim_analizi` | Paket iletimi, bant tasarrufu, delta + DEFLATE özeti |
+| UPLINK_KUYRUĞU | `/uplink_kuyrugu` | Bekleyen / gönderilen uplink kuyruğu (`stats.uplink_queue`) |
+| ORBITER_RÖLE | `/orbiter_role` | Orbiter Edge2: kuyruk, 30 sn pencere, düşük skor (eşik 40) paket düşürme, `orbiter_stats` |
+| YER_İSTASYONU_BULUT | `/yer_istasyonu_bulut` | Earth/Cloud: 20 relay batch sonrası `model_update`, RL epsilon geri beslemesi |
+| VERİ_SETİ | `/veri_seti` | Veri seti bilgi paneli |
+| ROVER_ZEKASİ | `/rover_zekasi` | Groq rover düşünce akışı (`rover_thinking` WS) |
 
 ---
 
@@ -464,7 +469,7 @@ mars-rover-dashboard/
 │   │   │   ├── TransmissionLog.jsx
 │   │   │   ├── UplinkQueue.jsx
 │   │   │   ├── DatasetInfo.jsx
-│   │   │   ├── NasaFeed.jsx
+│   │   │   ├── RoverThinking.jsx
 │   │   │   └── ConnectionStatus.jsx
 │   │   ├── hooks/
 │   │   │   ├── useWebSocket.js
@@ -484,7 +489,7 @@ mars-rover-dashboard/
 
 1. **`deploy_sync.py` (güncel akış):** Yerelde `npm run build` çalıştırır; `backend` + `frontend/dist` ve kaynak aynasını SFTP ile yükler; uzakta `venv` veya Miniconda `pip` ile `requirements.txt` kurar; `alembic upgrade head`; `nirvana` ve nginx yeniden başlatır. Yerel `backend/.env` varsa `/opt/nirvana/backend/.env` olarak kopyalanır; systemd biriminde `EnvironmentFile=-/opt/nirvana/backend/.env` kullanımı script tarafından eklenir.
 2. Sunucu adresi / SSH kimlik bilgileri **`deploy_fix5.py` veya ortam değişkeni** ile yönetilmeli; **parolayı repoya gömmeyin**.
-3. Üretimde `NASA_API_KEY` sunucu `.env` içinde tanımlı olmalıdır (NASA_CANLI için).
+3. `NASA_API_KEY` yalnızca `/api/nasa/*` proxy’sini kullanacaksanız `.env` içinde tanımlayın (dashboard’da bu uçlara bağlı sayfa yoktur).
 
 ---
 
@@ -495,4 +500,4 @@ mars-rover-dashboard/
 3. NASA Perseverance Science Instruments — science.nasa.gov
 4. Ground Processing of Data From the Mars Exploration Rovers — NASA NTRS.
 5. IP in Deep Space: Key Characteristics — IETF Draft.
-6. [NASA Open APIs](https://api.nasa.gov/) — APOD ve Mars Rover Photos (dashboard **NASA_CANLI** proxy).
+6. [NASA Open APIs](https://api.nasa.gov/) — APOD ve Mars Rover Photos (isteğe bağlı backend proxy: `/api/nasa/*`).

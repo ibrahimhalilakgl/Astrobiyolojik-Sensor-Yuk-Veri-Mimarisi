@@ -5,7 +5,7 @@ import crud
 from database import get_db
 from schemas import ModelUpdateResponse
 
-router = APIRouter(prefix="/api/model-updates", tags=["Model Updates"])
+router = APIRouter(prefix="/api/model-updates", tags=["Model güncellemeleri"])
 
 
 @router.get("", response_model=list[ModelUpdateResponse])

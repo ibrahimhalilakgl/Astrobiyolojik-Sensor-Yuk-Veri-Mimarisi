@@ -32,9 +32,9 @@ export default function UplinkQueue({ statsQueue }) {
           UPLINK_KUYRUĞU
         </p>
         <p className="text-sm mt-1 max-w-3xl leading-relaxed" style={{ color: "#708090" }}>
-          Skor ≥ 50 olan paketler önce veritabanında <strong style={{ color: "#00F2FF" }}>pending</strong> kuyruğa alınır;
+          Skor ≥ 50 olan paketler önce veritabanında <strong style={{ color: "#00F2FF" }}>bekleyen</strong> kuyruğa alınır;
           simülasyon her <strong style={{ color: "#FF00FF" }}>10 saniyede</strong> bir önceliğe göre en fazla <strong style={{ color: "#FF00FF" }}>6</strong> paketi DSN üzerinden
-          iletir (<strong style={{ color: "#00FF88" }}>sent</strong>). Bu, bant kısıtını ve sıralı uplink davranışını yansıtır.
+          iletir (<strong style={{ color: "#00FF88" }}>iletildi</strong> durumu). Bu, bant kısıtını ve sıralı uplink davranışını yansıtır.
         </p>
       </div>
 
