@@ -15,8 +15,45 @@
   .recharts-wrapper,
   .recharts-surface,
   .recharts-cartesian-grid { background: transparent !important; }
-  .recharts-default-tooltip { background: #080C14 !important; border-color: #0F1923 !important; }
-  .recharts-tooltip-cursor { fill: #00F2FF08 !important; stroke: #00F2FF20 !important; }
+
+  /* Recharts varsayılan tooltip — beyaz metin yerine HUD teması */
+  .recharts-default-tooltip {
+    background: rgba(6, 9, 16, 0.94) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(0, 242, 255, 0.28) !important;
+    border-radius: 0 !important;
+    box-shadow:
+      0 0 32px rgba(0, 242, 255, 0.12),
+      0 12px 40px rgba(0, 0, 0, 0.55) !important;
+    padding: 12px 14px !important;
+    font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  }
+  .recharts-tooltip-label {
+    color: #00F2FF !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 6px !important;
+    text-shadow: 0 0 14px rgba(0, 242, 255, 0.35) !important;
+  }
+  .recharts-tooltip-item-list { margin: 0 !important; padding: 0 !important; }
+  .recharts-tooltip-item {
+    color: #99AAB8 !important;
+    font-size: 11px !important;
+    padding: 2px 0 !important;
+  }
+  .recharts-tooltip-item-name,
+  .recharts-tooltip-item-separator {
+    color: #506070 !important;
+    font-weight: 600 !important;
+  }
+  .recharts-tooltip-item-value {
+    color: #BCC8D4 !important;
+    font-weight: 700 !important;
+  }
+  .recharts-tooltip-cursor { fill: #00F2FF08 !important; stroke: #00F2FF25 !important; }
 }
 
 @layer components {

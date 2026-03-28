@@ -112,7 +112,7 @@ run(c, "cd /opt/nirvana/backend && /opt/miniconda/bin/alembic upgrade head 2>&1"
 
 print("=== 7. Systemd service ===")
 svc = """[Unit]
-Description=Nirvana API
+Description=Sentinel API
 After=network.target postgresql.service
 
 [Service]

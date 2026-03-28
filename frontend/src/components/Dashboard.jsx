@@ -85,24 +85,9 @@ export default function Dashboard({
         <div className="flex items-center gap-5">
           <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-90" title="Ana sayfa">
             <div className="w-1.5 h-4" style={{ background: "#00F2FF", boxShadow: "0 0 8px #00F2FF60" }} />
-            <span className="text-base font-extrabold tracking-wider text-glow-cyan" style={{ color: "#00F2FF" }}>NIRVANA_OS</span>
+            <span className="text-base font-extrabold tracking-wider text-glow-cyan" style={{ color: "#00F2FF" }}>SENTİNEL_OS</span>
           </Link>
           <span className="text-xs" style={{ color: "#506070" }}>v1.0.4</span>
-          <div className="h-4 w-px" style={{ background: "#1A2535" }} />
-          {[
-            { label: "SENSÖRLER", path: "sensor_detay" },
-            { label: "ANALİZ", path: "anomali_tespit" },
-            { label: "HARİTA", path: "rover_harita" },
-          ].map(t => {
-            const on = sayfa === t.path;
-            return (
-              <button key={t.label} type="button" onClick={() => navigate(`/${t.path}`)} className="text-xs font-bold uppercase tracking-widest px-2.5 py-1 transition-all" style={{
-                color: on ? "#FF00FF" : "#607080",
-                borderBottom: on ? "2px solid #FF00FF" : "2px solid transparent",
-                textShadow: on ? "0 0 10px #FF00FF40" : "none",
-              }}>{t.label}</button>
-            );
-          })}
         </div>
         <div className="flex items-center gap-5">
           <ConnectionStatus status={wsStatus} />

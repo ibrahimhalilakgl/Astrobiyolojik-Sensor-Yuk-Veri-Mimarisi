@@ -38,9 +38,10 @@ _DEFAULT_CORS = (
 _cors_env = os.getenv("CORS_ALLOW_ORIGINS", _DEFAULT_CORS)
 CORS_ALLOW_ORIGINS = [x.strip() for x in _cors_env.split(",") if x.strip()]
 
-SIMULATION_INTERVAL_SEC = max(
-    1.0, min(120.0, float(os.getenv("NIRVANA_SIM_INTERVAL_SECONDS", "10")))
+_sim_env = os.getenv("SENTINEL_SIM_INTERVAL_SECONDS") or os.getenv(
+    "NIRVANA_SIM_INTERVAL_SECONDS", "10"
 )
+SIMULATION_INTERVAL_SEC = max(1.0, min(120.0, float(_sim_env)))
 
 river = RiverLearner()
 energy = EnergyController()
@@ -222,7 +223,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Nirvana — Astrobiyolojik Sensör Yükü Veri Mimarisi API",
+    title="Sentinel — Astrobiyolojik Sensör Yükü Veri Mimarisi API",
     description=(
         "Mars rover simülasyonundan gelen uçta işlenmiş sensör verisi; "
         "WebSocket canlı akış, uplink kuyruğu, orbiter rölesi ve federatif bulut senkronu."
@@ -251,4 +252,4 @@ app.include_router(ws_router.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "nirvana-api"}
+    return {"status": "ok", "service": "sentinel-api"}

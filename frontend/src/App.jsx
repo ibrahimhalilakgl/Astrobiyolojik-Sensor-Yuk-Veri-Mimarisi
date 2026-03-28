@@ -7,7 +7,7 @@ import LandingPage from "./components/LandingPage";
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/live-feed`;
 
-function NirvanaShell() {
+function SentinelShell() {
   const { status, messageBatch } = useWebSocket(WS_URL);
   const {
     readings,
@@ -46,7 +46,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/:sayfa" element={<NirvanaShell />} />
+        <Route path="/:sayfa" element={<SentinelShell />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

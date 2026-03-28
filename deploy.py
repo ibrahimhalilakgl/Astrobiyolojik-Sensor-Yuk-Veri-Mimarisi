@@ -88,7 +88,7 @@ def main():
 
     print("\n=== Creating systemd service ===")
     service = """[Unit]
-Description=Nirvana Mars Rover API
+Description=Sentinel Mars Rover API
 After=network.target postgresql.service
 
 [Service]

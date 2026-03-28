@@ -94,7 +94,7 @@ const PULL_QUOTES = [
   {
     text:
       "Gecikmeli bağlantıda her paket bir karar: tampon, skor ve uplink sırası aynı anda doğru olmalı.",
-    cite: "NIRVANA veri hattı özeti",
+    cite: "SENTİNEL veri hattı özeti",
   },
   {
     text:
@@ -332,12 +332,12 @@ export default function LandingPage() {
                   }}
                 />
                 <span className="relative font-editorial text-xl font-semibold leading-none text-[#f5f0e8] sm:text-[1.35rem]">
-                  N
+                  S
                 </span>
               </div>
               <div className="min-w-0 text-left">
                 <p className="font-mono text-[9px] font-medium uppercase tracking-[0.42em] text-[#9a8568] sm:text-[10px]">
-                  NIRVANA
+                  SENTİNEL
                 </p>
                 <p className="truncate font-editorial text-lg font-semibold leading-tight tracking-tight text-[#faf6ef] sm:text-xl">
                   Operasyon özeti
@@ -575,7 +575,7 @@ export default function LandingPage() {
               </div>
               <div className="absolute bottom-6 left-6 right-6 z-[20] max-w-lg">
                 <p className="font-mono text-[11px] uppercase tracking-widest text-white/50">
-                  NIRVANA · simülasyon
+                  SENTİNEL · simülasyon
                 </p>
                 <p className="mt-2 font-editorial text-xl text-[#f5f0e8] sm:text-2xl">
                   {f.sub}
@@ -853,7 +853,7 @@ export default function LandingPage() {
           className="relative z-10 mt-8 border-t border-white/[0.06] pt-14 pb-20 text-center"
         >
           <p className="font-mono text-xs text-[#6e7681]">
-            NIRVANA — eğitim ve simülasyon prototipi. Canlı Mars bağlantısı içermez.
+            SENTİNEL — eğitim ve simülasyon prototipi. Canlı Mars bağlantısı içermez.
           </p>
           <p className="mx-auto mt-3 max-w-lg font-mono text-[10px] leading-relaxed text-[#5c5348]">
             Perseverance 3B modeli NASA / JPL kaynaklıdır;{" "}

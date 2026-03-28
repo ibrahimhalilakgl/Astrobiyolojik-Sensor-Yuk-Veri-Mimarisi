@@ -1,6 +1,6 @@
 /**
  * Anthropic "Claude on Mars" sayfasındaki HYPERDRIVE / CASPIAN panellerinden esinlenen
- * NIRVANA simülasyon görünümleri (orijinal kod/varlık çekilmez — yeniden üretim).
+ * SENTİNEL simülasyon görünümleri (orijinal kod/varlık çekilmez — yeniden üretim).
  */
 import {
   Suspense,
@@ -483,7 +483,7 @@ export function HyperdrivePanel() {
           >
             Anthropic Mars
           </a>{" "}
-          tarzı (NIRVANA yeniden üretimi)
+          tarzı (SENTİNEL yeniden üretimi)
         </p>
       </div>
     </motion.section>
@@ -543,7 +543,7 @@ export function CaspianPanel() {
           )}
         </div>
         <p className="border-t border-white/[0.05] px-4 py-2 text-right font-mono text-[9px] uppercase tracking-[0.25em] text-[#5c5348]">
-          Kaydırarak kamera · telemetri senkron · NIRVANA yeniden üretimi
+          Kaydırarak kamera · telemetri senkron · SENTİNEL yeniden üretimi
         </p>
       </div>
     </motion.section>

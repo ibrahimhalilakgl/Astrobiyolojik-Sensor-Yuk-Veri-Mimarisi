@@ -4,11 +4,37 @@ import { formatNumber } from "../utils/formatters";
 function ChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
+  const accent = "#00F2FF";
   return (
-    <div className="p-3" style={{ background: "#080C14", border: "1px solid #1A2535" }}>
-      <p className="text-xs" style={{ color: "#8899AA" }}>{d.time}</p>
-      <p className="font-bold text-lg mt-0.5" style={{ color: "#00F2FF", textShadow: "0 0 10px #00F2FF40" }}>{formatNumber(d.score)}</p>
-      <p className="text-xs" style={{ color: "#708090" }}>SENSÖR: <span style={{ color: "#BCC8D4" }}>{d.sensor}</span></p>
+    <div
+      className="px-4 py-3.5 min-w-[180px]"
+      style={{
+        background: "rgba(6, 9, 16, 0.94)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: `1px solid ${accent}40`,
+        boxShadow: `0 0 32px ${accent}18, 0 12px 40px rgba(0,0,0,0.55)`,
+        fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+      }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: accent, textShadow: `0 0 12px ${accent}40` }}>
+        Anomali skoru
+      </p>
+      <p className="text-[11px] mb-2" style={{ color: "#607080" }}>
+        {d.time}
+      </p>
+      <p
+        className="font-bold text-xl tabular-nums leading-none mb-2"
+        style={{ color: accent, textShadow: `0 0 16px ${accent}50` }}
+      >
+        {formatNumber(d.score)}
+      </p>
+      <p className="text-[11px]" style={{ color: "#506070" }}>
+        SENSÖR{" "}
+        <span className="font-semibold" style={{ color: "#BCC8D4" }}>
+          {d.sensor}
+        </span>
+      </p>
     </div>
   );
 }
@@ -54,7 +80,12 @@ export default function AnomalyChart({ data }) {
             tickLine={false}
           />
           <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#708090", fontFamily: "JetBrains Mono" }} axisLine={{ stroke: "#0D1520" }} tickLine={false} />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#00F2FF15" }} />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ stroke: "#00F2FF30", strokeWidth: 1 }}
+            wrapperStyle={{ outline: "none", zIndex: 50 }}
+            allowEscapeViewBox={{ x: true, y: true }}
+          />
           <ReferenceLine y={60} stroke="#FF336640" strokeDasharray="6 3" />
           <ReferenceLine y={30} stroke="#FFAA0025" strokeDasharray="6 3" />
           <Area type="monotone" dataKey="score" stroke="#00F2FF" strokeWidth={2} fill="url(#sg)" dot={false} isAnimationActive={false} />

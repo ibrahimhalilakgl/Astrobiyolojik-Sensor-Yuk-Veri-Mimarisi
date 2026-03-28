@@ -82,7 +82,7 @@ export default function RoverThinking({ entries = [], stats = null }) {
             textShadow: thinkOn ? "0 0 20px #00FF8860" : "none",
           }}
         >
-          NIRVANA Düşünce Modu
+          SENTİNEL Düşünce Modu
         </h1>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -114,7 +114,9 @@ export default function RoverThinking({ entries = [], stats = null }) {
           <strong style={{ color: "#99AAB8" }}>10 sn</strong> bekler (ortam:{" "}
           <code className="text-[10px]" style={{ color: "#506070" }}>ROVER_THINK_DELAY_SECONDS</code>). Simülasyon turu aralığı:{" "}
           <strong style={{ color: "#99AAB8" }}>{simInt != null ? `${simInt} sn` : "—"}</strong>{" "}
-          (<code className="text-[10px]" style={{ color: "#506070" }}>NIRVANA_SIM_INTERVAL_SECONDS</code>).
+          (<code className="text-[10px]" style={{ color: "#506070" }}>SENTINEL_SIM_INTERVAL_SECONDS</code>;{" "}
+          <span style={{ color: "#506070" }}>eski:</span>{" "}
+          <code className="text-[10px]" style={{ color: "#506070" }}>NIRVANA_SIM_INTERVAL_SECONDS</code>).
         </p>
       </div>
 

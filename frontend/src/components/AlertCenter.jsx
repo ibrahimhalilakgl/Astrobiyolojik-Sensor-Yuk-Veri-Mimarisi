@@ -36,6 +36,57 @@ const ANOM_TR = {
 
 const BAR_COLORS = ["#00F2FF", "#FF00FF", "#00FF88", "#FFAA00", "#FF3366", "#8899AA"];
 
+function TypeDistributionTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const accent = d.barColor || "#00F2FF";
+  const count = d.count;
+  const avg = d.avg;
+  return (
+    <div
+      style={{
+        padding: "14px 16px",
+        minWidth: "200px",
+        background: "rgba(6, 9, 16, 0.94)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: `1px solid ${accent}55`,
+        boxShadow: `0 0 32px ${accent}20, 0 12px 40px rgba(0,0,0,0.55)`,
+        fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+      }}
+    >
+      <p
+        className="text-[11px] font-bold uppercase tracking-widest mb-2.5"
+        style={{
+          color: accent,
+          textShadow: `0 0 14px ${accent}45`,
+        }}
+      >
+        {d.name}
+      </p>
+      <div className="space-y-1.5 text-[11px]">
+        <div className="flex justify-between gap-8">
+          <span style={{ color: "#506070" }} className="font-semibold uppercase tracking-wide">
+            Sayı
+          </span>
+          <span style={{ color: "#BCC8D4" }}>
+            <span className="font-bold tabular-nums">{formatNumber(count, 0)}</span>{" "}
+            <span style={{ color: "#607080" }}>kayıt</span>
+          </span>
+        </div>
+        <div className="flex justify-between gap-8">
+          <span style={{ color: "#506070" }} className="font-semibold uppercase tracking-wide">
+            Ort. öncelik
+          </span>
+          <span className="font-bold tabular-nums" style={{ color: "#FF00FF" }}>
+            {avg != null && Number.isFinite(Number(avg)) ? Number(avg).toFixed(1) : "—"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function typeLabel(t) {
   return ANOM_TR[t] || t;
 }
@@ -125,11 +176,12 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
     () =>
       [...statsRows]
         .sort((a, b) => b.count - a.count)
-        .map((r) => ({
+        .map((r, i) => ({
           name: typeLabel(r.anomaly_type),
           count: r.count,
           avg: r.avg_priority,
           key: r.anomaly_type,
+          barColor: BAR_COLORS[i % BAR_COLORS.length],
         })),
     [statsRows]
   );
@@ -253,15 +305,10 @@ export default function AlertCenter({ anomalies, onAcknowledge, appendAnomaliesF
                   tick={{ fill: "#708090", fontSize: 9 }}
                 />
                 <Tooltip
-                  contentStyle={{
-                    background: "#080C14",
-                    border: "1px solid #1A2535",
-                    fontSize: 11,
-                  }}
-                  formatter={(value, _name, item) => [
-                    `${value} kayıt (ort. öncelik ${item?.payload?.avg?.toFixed?.(1) ?? "—"})`,
-                    "Sayı",
-                  ]}
+                  content={<TypeDistributionTooltip />}
+                  cursor={{ fill: "rgba(0, 242, 255, 0.07)" }}
+                  wrapperStyle={{ outline: "none", zIndex: 50 }}
+                  allowEscapeViewBox={{ x: true, y: true }}
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                   {chartData.map((_, i) => (

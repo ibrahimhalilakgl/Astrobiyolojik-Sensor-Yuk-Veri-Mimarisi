@@ -1,4 +1,4 @@
-# NIRVANA — Astrobiyolojik Sensör Yükü Veri Mimarisi
+# SENTİNEL — Astrobiyolojik Sensör Yükü Veri Mimarisi
 
 > NASA **SMAP/MSL Anomaly Detection** veri setindeki MSL (Curiosity) kanallarından gelen telemetriyi **sıralı replay** ile üreten; uçta (edge) anomali skoru, öncelik, sıkıştırma ve **uplink kuyruğu** ile işleyen; PostgreSQL + WebSocket üzerinden ground station dashboard’unda canlı gösteren web uygulaması. Anomali skorunda veri setinin **önceden hesaplanmış LSTM smoothed error** (`.npy`) değerleri kullanılır; çalışma zamanında **TensorFlow/Keras veya `.h5` model yükleme yoktur**. Backend’de isteğe bağlı [NASA Open API](https://api.nasa.gov/) proxy uçları (`/api/nasa/*`) bulunur; arayüzde ayrı bir NASA canlı sayfası yoktur.
 
@@ -488,7 +488,7 @@ mars-rover-dashboard/
 
 ### Üretim sunucusuna yükleme
 
-1. **`deploy_sync.py` (güncel akış):** Yerelde `npm run build` çalıştırır; `backend` + `frontend/dist` ve kaynak aynasını SFTP ile yükler; uzakta `venv` veya Miniconda `pip` ile `requirements.txt` kurar; `alembic upgrade head`; `nirvana` ve nginx yeniden başlatır. Yerel `backend/.env` varsa `/opt/nirvana/backend/.env` olarak kopyalanır; systemd biriminde `EnvironmentFile=-/opt/nirvana/backend/.env` kullanımı script tarafından eklenir.
+1. **`deploy_sync.py` (güncel akış):** Yerelde `npm run build` çalıştırır; `backend` + `frontend/dist` ve kaynak aynasını SFTP ile yükler; uzakta `venv` veya Miniconda `pip` ile `requirements.txt` kurar; `alembic upgrade head`; systemd birimi (ör. `nirvana`) ve nginx yeniden başlatılır. Ürün arayüz adı **SENTİNEL**; sunucu dizini örneği `/opt/nirvana/` tarihsel kurulumla uyumludur. Yerel `backend/.env` varsa `/opt/nirvana/backend/.env` olarak kopyalanır; `EnvironmentFile=-/opt/nirvana/backend/.env` eklenir.
 2. Sunucu adresi / SSH kimlik bilgileri **`deploy_fix5.py` veya ortam değişkeni** ile yönetilmeli; **parolayı repoya gömmeyin**.
 3. `NASA_API_KEY` yalnızca `/api/nasa/*` proxy’sini kullanacaksanız `.env` içinde tanımlayın (dashboard’da bu uçlara bağlı sayfa yoktur).
 

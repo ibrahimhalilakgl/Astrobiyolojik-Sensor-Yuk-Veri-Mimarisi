@@ -45,7 +45,7 @@ run(c, "cd /opt/nirvana/backend && ./venv/bin/alembic upgrade head 2>&1")
 
 print("\n=== 5. Update systemd service to use python3.11 venv ===")
 svc = """[Unit]
-Description=Nirvana Astrobiology API
+Description=Sentinel Astrobiology API
 After=network.target postgresql.service
 
 [Service]
@@ -84,7 +84,7 @@ run(c, "curl -s http://localhost:8000/health")
 run(c, "curl -s -o /dev/null -w 'HTTP_%{http_code}' http://37.247.101.197/")
 
 print(f"\n{'='*60}")
-print(f"  NIRVANA DEPLOYED!")
+print(f"  SENTINEL DEPLOYED!")
 print(f"  Dashboard: http://37.247.101.197")
 print(f"  API: http://37.247.101.197/health")
 print(f"{'='*60}")
