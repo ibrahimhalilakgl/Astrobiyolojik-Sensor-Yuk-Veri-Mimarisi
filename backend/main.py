@@ -25,7 +25,8 @@ async def simulation_loop() -> None:
             await db.commit()
 
         for reading in processed:
-            await broadcast({"type": "sensor_reading", "data": reading})
+            pub = {k: v for k, v in reading.items() if k != "_uplink_eligible"}
+            await broadcast({"type": "sensor_reading", "data": pub})
 
         for event in anomaly_events:
             await broadcast({"type": "anomaly_alert", "data": event})

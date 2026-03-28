@@ -177,7 +177,10 @@ class EdgeProcessor:
 
         db_readings = []
         for r in processed:
-            db_readings.append({k: v for k, v in r.items() if not k.startswith("_")})
+            row = {k: v for k, v in r.items() if not k.startswith("_")}
+            if r.get("_uplink_eligible"):
+                row["_uplink_eligible"] = True
+            db_readings.append(row)
 
         return db_readings, anomaly_events, transmission_log
 
