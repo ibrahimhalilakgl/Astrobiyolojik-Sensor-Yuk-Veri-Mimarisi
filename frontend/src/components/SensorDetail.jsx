@@ -8,14 +8,14 @@ const SENSOR_COLORS = {
 };
 
 const SENSOR_INFO = {
-  TEMP:  { range: "-80 — +20 °C", desc: "Mars yüzey ve atmosfer sıcaklığı. REMS (Rover Environmental Monitoring Station) tarafından ölçülür.", unit: "°C" },
-  CH4:   { range: "0 — 50 ppb", desc: "Metan konsantrasyonu. SAM (Sample Analysis at Mars) enstrümanı ile ölçülür. Biyolojik aktivite göstergesi olabilir.", unit: "ppb" },
+  TEMP:  { range: "-80 — +20 °C", desc: "Mars yüzey ve atmosfer sıcaklığı. MSL görevinde REMS (Rover Environmental Monitoring Station) bu tür ölçümleri sağlar; veri setindeki kanallar MSL telemetrisine karşılık gelir.", unit: "°C" },
+  CH4:   { range: "0 — 50 ppb", desc: "Metan konsantrasyonu. MSL’de SAM (Sample Analysis at Mars) gaz analizi yapar; Kaggle MSL kanalları bu bağlamda yorumlanır.", unit: "ppb" },
   O2:    { range: "0.1 — 0.2 %", desc: "Atmosferik oksijen seviyesi. Mars atmosferinde çok düşük konsantrasyonda bulunur.", unit: "%" },
   CO2:   { range: "95 — 96 %", desc: "Karbondioksit — Mars atmosferinin ana bileşeni. Mevsimsel değişimler gösterir.", unit: "%" },
-  MOIST: { range: "0 — 100 %", desc: "Nem seviyesi. Mars yüzeyinde su buharı ve buz etkileşimlerini izler.", unit: "%" },
-  SPEC:  { range: "0 — 1000 nm", desc: "Spektral yoğunluk verisi. PIXL ve SHERLOC enstrümanları ile mineral/organik analiz.", unit: "nm" },
-  UV:    { range: "0 — 500 mW/m²", desc: "Ultraviyole radyasyon. Mars yüzeyindeki UV seviyesi Dünya'dan çok daha yüksektir.", unit: "mW/m²" },
-  PRESS: { range: "600 — 800 Pa", desc: "Atmosferik basınç. Mars'ta Dünya'nın ~%1'i seviyesinde. Toz fırtınalarında değişir.", unit: "Pa" },
+  MOIST: { range: "0 — 100 %", desc: "Nem / su buharı ile ilişkili sinyal. MSL REMS nem ölçümleri ile uyumlu senaryo; kanal veri setinden türetilmiştir.", unit: "%" },
+  SPEC:  { range: "0 — 1000 nm", desc: "Spektral yoğunluk (normalize seri). MSL’de ChemCam vb. spektroskopik ölçümler vardır; buradaki SPEC kanalları veri setindeki MSL kanallarına karşılık gelir (Perseverance PIXL/SHERLOC değil).", unit: "nm" },
+  UV:    { range: "0 — 500 mW/m²", desc: "Ultraviyole radyasyon. REMS UV sensörü ile uyumlu senaryo; Mars yüzeyindeki UV Dünya’dan yüksektir.", unit: "mW/m²" },
+  PRESS: { range: "600 — 800 Pa", desc: "Atmosferik basınç. REMS basınç ölçümleri; Mars’ta Dünya’nın yaklaşık %1’i düzeyinde.", unit: "Pa" },
 };
 
 function ChartTooltip({ active, payload }) {

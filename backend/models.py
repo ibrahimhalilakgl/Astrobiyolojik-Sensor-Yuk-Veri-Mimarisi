@@ -21,14 +21,17 @@ class SensorReading(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sensor_type = Column(String(10), nullable=False, index=True)
+    channel_id = Column(String(20), nullable=False, default="", index=True)
     raw_value = Column(Float, nullable=False)
     unit = Column(String(20), nullable=False)
     anomaly_score = Column(Float, nullable=False, default=0.0)
     is_anomaly = Column(Boolean, nullable=False, default=False)
+    ground_truth_anomaly = Column(Boolean, nullable=False, default=False)
     is_transmitted = Column(Boolean, nullable=False, default=False)
     location_lat = Column(Float, nullable=False)
     location_lon = Column(Float, nullable=False)
     sol = Column(Integer, nullable=False, default=1)
+    is_novel = Column(Boolean, nullable=False, default=False)
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -40,6 +43,9 @@ class SensorReading(Base):
     )
     uplink_queue_items = relationship(
         "UplinkQueueItem", back_populates="reading", cascade="all, delete-orphan"
+    )
+    orbiter_queue_items = relationship(
+        "OrbiterQueueItem", back_populates="reading", cascade="all, delete-orphan"
     )
 
 
@@ -67,6 +73,59 @@ class UplinkQueueItem(Base):
     dsn_station = Column(String(50), nullable=True)
 
     reading = relationship("SensorReading", back_populates="uplink_queue_items")
+
+
+class OrbiterQueueItem(Base):
+    __tablename__ = "orbiter_queue"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reading_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_readings.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    queued_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    forwarded_at = Column(DateTime(timezone=True), nullable=True)
+
+    reading = relationship("SensorReading", back_populates="orbiter_queue_items")
+
+
+class OrbiterRelayLog(Base):
+    __tablename__ = "orbiter_relay_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id = Column(UUID(as_uuid=True), nullable=False)
+    packets_received = Column(Integer, nullable=False)
+    packets_forwarded = Column(Integer, nullable=False)
+    relay_latency_ms = Column(Float, nullable=False)
+    pass_id = Column(String(50), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class ModelUpdate(Base):
+    __tablename__ = "model_updates"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_version = Column(Integer, nullable=False)
+    threshold_suggestion = Column(Float, nullable=False)
+    federated_round = Column(Integer, nullable=False)
+    source = Column(String(50), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 
 class AnomalyEvent(Base):

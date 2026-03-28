@@ -27,8 +27,8 @@ export default function LiveStreamTable({ readings }) {
         <table className="w-full">
           <thead>
             <tr style={{ borderBottom: "1px solid #0F1923" }}>
-              {["ZAMAN", "SENSÖR", "DEĞER", "BİRİM", "SKOR", "DURUM", "TX"].map((h, i) => (
-                <th key={h} className={`py-3 px-4 text-xs font-bold uppercase tracking-wider ${i === 2 || i === 4 ? "text-right" : i >= 5 ? "text-center" : "text-left"}`}
+              {["ZAMAN", "KANAL", "SENSÖR", "DEĞER", "BİRİM", "SKOR", "DURUM", "TX"].map((h, i) => (
+                <th key={h} className={`py-3 px-4 text-xs font-bold uppercase tracking-wider ${i === 3 || i === 5 ? "text-right" : i >= 6 ? "text-center" : "text-left"}`}
                   style={{ color: "#607080" }}>{h}</th>
               ))}
             </tr>
@@ -39,6 +39,7 @@ export default function LiveStreamTable({ readings }) {
               return (
                 <tr key={r.id || i} style={{ borderBottom: "1px solid #0A0F18", background: r.is_anomaly ? "#FF33660A" : "transparent" }}>
                   <td className="py-3 px-4 text-sm" style={{ color: "#708090" }}>{formatTimestamp(r.created_at)}</td>
+                  <td className="py-3 px-4 text-xs font-mono" style={{ color: "#506070" }}>{r.channel_id || "—"}</td>
                   <td className="py-3 px-4">
                     <span className="text-sm font-semibold" style={{ color: "#00F2FF", textShadow: "0 0 6px #00F2FF25" }}>{r.sensor_type}</span>
                     <span className="text-xs ml-2" style={{ color: "#607080" }}>{sensorLabel(r.sensor_type)}</span>

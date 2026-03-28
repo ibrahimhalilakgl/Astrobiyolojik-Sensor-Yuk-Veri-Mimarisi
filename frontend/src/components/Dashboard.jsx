@@ -12,6 +12,10 @@ import RoverMap from "./RoverMap";
 import Telemetry from "./Telemetry";
 import TransmissionLog from "./TransmissionLog";
 import UplinkQueue from "./UplinkQueue";
+import NasaFeed from "./NasaFeed";
+import OrbiterRelay from "./OrbiterRelay";
+import EarthCloud from "./EarthCloud";
+import RoverThinking from "./RoverThinking";
 
 const NAV = [
   { id: "dashboard", label: "GÖSTERGE_PANELİ" },
@@ -23,6 +27,10 @@ const NAV = [
   { id: "transmission", label: "İLETİM_ANALİZİ" },
   { id: "uplink-queue", label: "UPLINK_KUYRUĞU" },
   { id: "dataset", label: "VERİ_SETİ" },
+  { id: "nasa", label: "NASA_CANLI" },
+  { id: "orbiter", label: "ORBITER_RÖLE" },
+  { id: "earth-cloud", label: "YER_İSTASYONU_BULUT" },
+  { id: "rover-ai", label: "ROVER_ZEKASİ", icon: "🧠" },
 ];
 
 export default function Dashboard({
@@ -34,6 +42,10 @@ export default function Dashboard({
   stats,
   onAcknowledge,
   appendAnomaliesFromApi,
+  orbiterStats,
+  modelUpdates,
+  rlRewardSeries,
+  roverThinking,
 }) {
   const [active, setActive] = useState("dashboard");
   const sol = stats?.rover?.sol ?? "—";
@@ -97,7 +109,7 @@ export default function Dashboard({
               <span className="w-2 h-2 rounded-full" style={{ background: "#00F2FF", boxShadow: "0 0 6px #00F2FF80" }} />
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#8899AA" }}>ASTROBİYOLOJİ_BİRİMİ</span>
             </div>
-            <p className="text-xs ml-4 uppercase tracking-widest" style={{ color: "#506070" }}>SEKTÖR: JEZERO KRATERİ</p>
+            <p className="text-xs ml-4 uppercase tracking-widest" style={{ color: "#506070" }}>SEKTÖR: GALE KRATERİ (MSL)</p>
           </div>
 
           <div className="n-divider" />
@@ -113,7 +125,10 @@ export default function Dashboard({
                     color: on ? "#00F2FF" : "#708090",
                     borderLeft: on ? "2px solid #00F2FF" : "2px solid transparent",
                     textShadow: on ? "0 0 10px #00F2FF30" : "none",
-                  }}>{item.label}</button>
+                  }}>
+                  {item.icon ? <span className="text-base shrink-0" aria-hidden>{item.icon}</span> : null}
+                  <span>{item.label}</span>
+                </button>
               );
             })}
           </nav>
@@ -180,6 +195,16 @@ export default function Dashboard({
             {active === "sensors" && <Telemetry readings={readings} />}
             {active === "transmission" && <TransmissionLog stats={stats} />}
             {active === "uplink-queue" && <UplinkQueue statsQueue={stats?.uplink_queue} />}
+            {active === "nasa" && <NasaFeed />}
+            {active === "orbiter" && <OrbiterRelay orbiterStats={orbiterStats} />}
+            {active === "earth-cloud" && (
+              <EarthCloud
+                modelUpdates={modelUpdates}
+                rlRewardSeries={rlRewardSeries}
+                stats={stats}
+              />
+            )}
+            {active === "rover-ai" && <RoverThinking entries={roverThinking || []} />}
           </div>
 
           <footer className="min-h-7 shrink-0 flex flex-wrap items-center px-5 gap-x-8 gap-y-1 py-1 text-xs font-mono" style={{ background: "#060910", borderTop: "1px solid #0D1520" }}>

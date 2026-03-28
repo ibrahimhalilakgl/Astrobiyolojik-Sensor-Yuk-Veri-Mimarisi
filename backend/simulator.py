@@ -27,7 +27,8 @@ MSL_CHANNELS = {
     "F-7":  {"sensor_type": "SPEC",  "unit": "nm",    "label": "FTIR Spektroskopi"},
 }
 
-JEZERO_CRATER_CENTER = (18.4446, 77.4509)
+# MSL (Curiosity) — Gale Krateri / Bradbury İniş yakını (gösterim koordinatları)
+GALE_CRATER_LANDING = (-4.5892, 137.4417)
 
 
 @dataclass
@@ -39,8 +40,8 @@ class NASADataLoader:
     cursors: Dict[str, int] = field(default_factory=dict)
     sol: int = 1
     tick_count: int = 0
-    lat: float = JEZERO_CRATER_CENTER[0]
-    lon: float = JEZERO_CRATER_CENTER[1]
+    lat: float = GALE_CRATER_LANDING[0]
+    lon: float = GALE_CRATER_LANDING[1]
     _loaded: bool = False
 
     def load(self) -> None:

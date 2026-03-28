@@ -12,6 +12,10 @@ export default function App() {
     anomalies,
     chartData,
     stats,
+    orbiterStats,
+    modelUpdates,
+    rlRewardSeries,
+    roverThinking,
     acknowledgeAnomaly,
     appendAnomaliesFromApi,
   } = useAnomalyData(messageBatch);
@@ -24,6 +28,10 @@ export default function App() {
       anomalies={anomalies}
       chartData={chartData}
       stats={stats}
+      orbiterStats={orbiterStats}
+      modelUpdates={modelUpdates}
+      rlRewardSeries={rlRewardSeries}
+      roverThinking={roverThinking}
       onAcknowledge={acknowledgeAnomaly}
       appendAnomaliesFromApi={appendAnomaliesFromApi}
     />

@@ -1,4 +1,5 @@
 import random
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -6,7 +7,16 @@ from uuid import UUID
 from sqlalchemy import case, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import AnomalyEvent, SensorReading, TransmissionLog, UplinkQueueItem
+from models import (
+    AnomalyEvent,
+    ModelUpdate,
+    OrbiterQueueItem,
+    OrbiterRelayLog,
+    SensorReading,
+    TransmissionLog,
+    UplinkQueueItem,
+)
+from orbiter_processor import OrbiterPacket, OrbiterProcessor
 
 DSN_STATIONS = ["Goldstone-DSS14", "Canberra-DSS43", "Madrid-DSS63"]
 
@@ -54,6 +64,13 @@ async def bulk_create_readings(
                     queued_at=datetime.now(timezone.utc),
                 )
             )
+            db.add(
+                OrbiterQueueItem(
+                    reading_id=row["id"],
+                    status="pending",
+                    queued_at=datetime.now(timezone.utc),
+                )
+            )
     for a in anomalies:
         db.add(AnomalyEvent(**a))
     if transmission:
@@ -65,11 +82,14 @@ def _reading_to_dict(r: SensorReading) -> dict:
     return {
         "id": r.id,
         "sensor_type": r.sensor_type,
+        "channel_id": r.channel_id,
         "raw_value": r.raw_value,
         "unit": r.unit,
         "anomaly_score": r.anomaly_score,
         "is_anomaly": r.is_anomaly,
+        "ground_truth_anomaly": r.ground_truth_anomaly,
         "is_transmitted": r.is_transmitted,
+        "is_novel": getattr(r, "is_novel", False),
         "location_lat": r.location_lat,
         "location_lon": r.location_lon,
         "sol": r.sol,
@@ -121,8 +141,108 @@ async def drain_uplink_queue(
         payloads.append(_reading_to_dict(reading))
     if payloads:
         processor.record_uplink_batch(payloads)
+        processor.apply_rl_rewards_after_uplink(payloads)
     await db.flush()
     return payloads
+
+
+async def process_orbiter_drain(
+    db: AsyncSession, orb: OrbiterProcessor, max_items: int = 24
+) -> None:
+    stmt = (
+        select(OrbiterQueueItem)
+        .where(OrbiterQueueItem.status == "pending")
+        .order_by(OrbiterQueueItem.queued_at)
+        .limit(max_items)
+        .with_for_update(skip_locked=True)
+    )
+    res = await db.execute(stmt)
+    items = list(res.scalars().all())
+    forward_packets: List[OrbiterPacket] = []
+    now = datetime.now(timezone.utc)
+    for item in items:
+        reading = await db.get(SensorReading, item.reading_id)
+        orb.note_received(1)
+        if not reading:
+            item.status = "cancelled"
+            continue
+        if float(reading.anomaly_score) < 40.0:
+            item.status = "dropped"
+            orb.note_secondary_drop(1)
+            continue
+        item.status = "forwarded"
+        item.forwarded_at = now
+        forward_packets.append(
+            OrbiterPacket(
+                reading_id=str(reading.id),
+                sol=int(reading.sol),
+                anomaly_score=float(reading.anomaly_score),
+                sensor_type=str(reading.sensor_type),
+            )
+        )
+    if forward_packets:
+        orb.ingest_forwarded(forward_packets)
+    await db.flush()
+
+
+async def insert_orbiter_relay_log(db: AsyncSession, meta: Dict[str, Any]) -> OrbiterRelayLog:
+    log = OrbiterRelayLog(
+        id=uuid.uuid4(),
+        batch_id=UUID(meta["batch_id"]) if isinstance(meta["batch_id"], str) else meta["batch_id"],
+        packets_received=int(meta["packets_received"]),
+        packets_forwarded=int(meta["packets_forwarded"]),
+        relay_latency_ms=float(meta["relay_latency_ms"]),
+        pass_id=str(meta["pass_id"]),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(log)
+    await db.flush()
+    return log
+
+
+async def list_orbiter_relay_logs(
+    db: AsyncSession, limit: int = 80
+) -> List[OrbiterRelayLog]:
+    q = (
+        select(OrbiterRelayLog)
+        .order_by(desc(OrbiterRelayLog.created_at))
+        .limit(limit)
+    )
+    r = await db.execute(q)
+    return list(r.scalars().all())
+
+
+async def create_model_update(db: AsyncSession, payload: Dict[str, Any]) -> ModelUpdate:
+    row = ModelUpdate(
+        id=uuid.uuid4(),
+        model_version=int(payload["model_version"]),
+        threshold_suggestion=float(payload["threshold_suggestion"]),
+        federated_round=int(payload["federated_round"]),
+        source=str(payload.get("source", "earth_cloud")),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def list_model_updates(db: AsyncSession, limit: int = 50) -> List[ModelUpdate]:
+    q = select(ModelUpdate).order_by(desc(ModelUpdate.created_at)).limit(limit)
+    r = await db.execute(q)
+    return list(r.scalars().all())
+
+
+async def get_recent_anomaly_rate(db: AsyncSession, window: int = 800) -> float:
+    stmt = (
+        select(SensorReading)
+        .order_by(desc(SensorReading.created_at))
+        .limit(window)
+    )
+    r = await db.execute(stmt)
+    rows = list(r.scalars().all())
+    if not rows:
+        return 0.0
+    return sum(1 for x in rows if x.is_anomaly) / len(rows)
 
 
 async def get_uplink_queue_snapshot(db: AsyncSession) -> Dict[str, Any]:

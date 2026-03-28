@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const MAX_READINGS = 120;
 /** Sensör detay / canlı: her tip için en güncel N okuma (karışık kuyruk yerine) */
@@ -7,6 +7,7 @@ const BOOTSTRAP_READINGS_LIMIT = 3000;
 const MAX_ANOMALIES = 400;
 const ANOMALY_BOOTSTRAP_LIMIT = 300;
 const MAX_CHART_POINTS = 60;
+const MAX_ROVER_THINKING = 5;
 
 function mergeAnomalyLists(fromApi, currentWs) {
   const m = new Map();
@@ -115,6 +116,11 @@ export default function useAnomalyData(messageBatch) {
   const [anomalies, setAnomalies] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [stats, setStats] = useState(null);
+  const [orbiterStats, setOrbiterStats] = useState(null);
+  const [modelUpdates, setModelUpdates] = useState([]);
+  const [rlRewardSeries, setRlRewardSeries] = useState([]);
+  const [roverThinking, setRoverThinking] = useState([]);
+  const lastRlRewardRef = useRef(null);
 
   /* Sayfa / uygulama ilk açıldığında: DB’den karışık kayıt + sensör başına son 50 — grafik “giriş anından” başlamasın */
   useEffect(() => {
@@ -176,9 +182,18 @@ export default function useAnomalyData(messageBatch) {
           });
           break;
 
-        case "stats_update":
-          setStats(msg.data);
+        case "stats_update": {
+          const d = msg.data;
+          setStats(d);
+          const tr = d?.rl_stats?.total_reward;
+          if (tr != null && tr !== lastRlRewardRef.current) {
+            lastRlRewardRef.current = tr;
+            setRlRewardSeries((prev) =>
+              [...prev, { t: new Date().toISOString(), reward: tr }].slice(-48)
+            );
+          }
           break;
+        }
 
         case "uplink_queue_update":
           setStats((prev) => ({
@@ -186,6 +201,39 @@ export default function useAnomalyData(messageBatch) {
             uplink_queue: msg.data,
           }));
           break;
+
+        case "orbiter_stats":
+          setOrbiterStats(msg.data);
+          break;
+
+        case "model_update":
+          setModelUpdates((prev) =>
+            [
+              {
+                ...msg.data,
+                at: new Date().toISOString(),
+              },
+              ...prev,
+            ].slice(0, 40)
+          );
+          break;
+
+        case "energy_stats":
+          setStats((prev) => ({ ...(prev || {}), energy_stats: msg.data }));
+          break;
+
+        case "rl_stats":
+          setStats((prev) => ({ ...(prev || {}), rl_stats: msg.data }));
+          break;
+
+        case "rover_thinking":
+          setRoverThinking((prev) => {
+            const row = { ...msg.data };
+            if (!row.timestamp) row.timestamp = new Date().toISOString();
+            return [row, ...prev].slice(0, MAX_ROVER_THINKING);
+          });
+          break;
+
         default:
           break;
       }
@@ -220,6 +268,10 @@ export default function useAnomalyData(messageBatch) {
     anomalies,
     chartData,
     stats,
+    orbiterStats,
+    modelUpdates,
+    rlRewardSeries,
+    roverThinking,
     acknowledgeAnomaly,
     appendAnomaliesFromApi,
   };

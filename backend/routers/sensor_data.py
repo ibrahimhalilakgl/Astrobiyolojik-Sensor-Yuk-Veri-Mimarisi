@@ -51,7 +51,7 @@ async def simulate_reading(db: AsyncSession = Depends(get_db)):
 
     processor = EdgeProcessor()
     raw = generate_sensor_readings()
-    processed, anomalies, transmission = processor.process_batch(raw)
+    processed, anomalies, transmission = await processor.process_batch(raw)
     await crud.bulk_create_readings(db, processed, anomalies, transmission)
     await db.commit()
 

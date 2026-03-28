@@ -6,11 +6,14 @@ from pydantic import BaseModel, Field
 
 class SensorReadingCreate(BaseModel):
     sensor_type: str
+    channel_id: str = ""
     raw_value: float
     unit: str
     anomaly_score: float = 0.0
     is_anomaly: bool = False
+    ground_truth_anomaly: bool = False
     is_transmitted: bool = False
+    is_novel: bool = False
     location_lat: float
     location_lon: float
     sol: int = 1
@@ -19,11 +22,14 @@ class SensorReadingCreate(BaseModel):
 class SensorReadingResponse(BaseModel):
     id: UUID
     sensor_type: str
+    channel_id: str
     raw_value: float
     unit: str
     anomaly_score: float
     is_anomaly: bool
+    ground_truth_anomaly: bool
     is_transmitted: bool
+    is_novel: bool = False
     location_lat: float
     location_lon: float
     sol: int
@@ -99,3 +105,26 @@ class OverviewStats(BaseModel):
     bandwidth_saved_percent: float
     highest_severity: Optional[str] = None
     total_bytes_saved: int = 0
+
+
+class OrbiterRelayLogResponse(BaseModel):
+    id: UUID
+    batch_id: UUID
+    packets_received: int
+    packets_forwarded: int
+    relay_latency_ms: float
+    pass_id: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ModelUpdateResponse(BaseModel):
+    id: UUID
+    model_version: int
+    threshold_suggestion: float
+    federated_round: int
+    source: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

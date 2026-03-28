@@ -8,3 +8,6 @@ python-dotenv==1.0.1
 numpy==2.2.1
 pandas==2.2.3
 pydantic==2.10.4
+httpx==0.28.1
+groq>=0.9.0
+river==0.22.0

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const STEPS = [
   { id: "collect", num: "01", title: "VERİ TOPLAMA", sub: "SENSÖR OKUMA",
     color: "#00F2FF", icon: "📡",
-    desc: "Mars rover üzerindeki sensörler (PIXL, SHERLOC, Hazcam, REMS, SAM) sürekli ham veri üretir. Her sensör belirli aralıklarla okuma yapar — sıcaklık, basınç, metan, spektral yoğunluk gibi ölçümler.",
+    desc: "MSL (Curiosity) telemetrisine dayalı NASA SMAP/MSL veri setinden 12 kanal okunur (T-1, M-6, C-1, …). Gerçek görevde REMS, SAM, ChemCam vb. enstrümanlar benzer ölçüm türlerini üretir; bu paneldeki akış veri seti replay + edge simülasyonudur.",
     detail: "Kullanılan kanallar: T-1 (Sıcaklık), M-6 (Metan), C-1/C-2 (Spektrometre), D-14 (UV), D-15 (O₂), D-16 (CO₂), P-10 (Basınç), F-7 (FTIR). Veriler normalize edilmiş [-1, 1] aralığında, CCSDS paket formatında üretilir.",
     metrics: [
       { l: "KANAL SAYISI", v: "12 MSL kanalı" },
@@ -326,6 +326,12 @@ export default function PipelineAnimation({ stats }) {
 
   return (
     <div className="space-y-5">
+      <div className="n-hud p-4" style={{ border: "1px solid #FFAA0045", background: "linear-gradient(135deg, #FFAA000A, #060910)" }}>
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#FFAA00" }}>Şeffaflık — gösterim / şema</p>
+        <p className="text-xs mt-2 leading-relaxed" style={{ color: "#708090" }}>
+          Bu sayfadaki animasyon ve adım metinleri <span style={{ color: "#99AAB8" }}>pedagojik şema</span> ve sahnelemedir; gerçek rover uçuş yazılımının birebir kopyası değildir. DSN süreleri ve kapasite ifadeleri genelleştirilmiştir. Edge kararları ve sayısal metrikler backend ile İletim Analizi sayfasındaki canlı veriye dayanır; istatistik kutularında canlı veri yoksa sayaçlar yerel demo sayaçları kullanılır.
+        </p>
+      </div>
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>

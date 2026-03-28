@@ -1,3 +1,5 @@
+"""Canlı WS: sensor_reading, anomaly_alert, stats_update, rover_thinking, …"""
+
 import asyncio
 import json
 from datetime import datetime, timezone

@@ -8,7 +8,8 @@ venv/
 .vite/
 data.zip
 reference.pdf
-deploy*.py
+# Sunucu parolası içeren yerel dosya — repoya koymayın
+deploy_fix5.py
 backend/data/2018-05-19_15.00.10/models/
 backend/data/2018-05-19_15.00.10/y_hat/
 backend/data/2018-05-19_15.00.10/smoothed_errors/

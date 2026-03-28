@@ -2,6 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const RECONNECT_DELAY = 3000;
 
+/** Sunucunun gönderebileceği genişletilmiş tipler; kuyrukta tutulur, işlenmesi useAnomalyData.js içindedir. */
+export const DASHBOARD_WS_TYPES = new Set([
+  "orbiter_stats",
+  "model_update",
+  "energy_stats",
+  "rl_stats",
+  "stats_update",
+  "uplink_queue_update",
+  "sensor_reading",
+  "anomaly_alert",
+  "rover_thinking",
+]);
+
 export default function useWebSocket(url) {
   const [status, setStatus] = useState("disconnected");
   const [messageBatch, setMessageBatch] = useState(null);
@@ -36,6 +49,9 @@ export default function useWebSocket(url) {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (import.meta.env?.DEV && data?.type && !DASHBOARD_WS_TYPES.has(data.type)) {
+          console.warn("[ws] bilinmeyen mesaj tipi:", data.type);
+        }
         queueRef.current.push(data);
         if (!flushScheduledRef.current) {
           flushScheduledRef.current = true;

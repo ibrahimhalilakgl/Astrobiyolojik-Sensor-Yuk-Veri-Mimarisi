@@ -3,8 +3,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { formatNumber } from "../utils/formatters";
 
-const JEZERO = [18.4446, 77.4509];
-const LANDING = [18.4447, 77.4508];
+// MSL (Curiosity) — Gale Krateri / Bradbury İniş bölgesi (harita merkezi)
+const GALE_CENTER = [-4.5892, 137.4417];
+const LANDING = [-4.5895, 137.4414];
 const TRAIL_MAX = 500;
 const MARS_TILES = "https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/viking_mdim21_global/{z}/{x}/{y}.png";
 
@@ -24,7 +25,7 @@ export default function RoverMap({ stats }) {
     if (!mapRef.current || mapInstance.current) return;
 
     const map = L.map(mapRef.current, {
-      center: JEZERO,
+      center: GALE_CENTER,
       zoom: 6,
       minZoom: 2,
       maxZoom: 9,
@@ -40,9 +41,9 @@ export default function RoverMap({ stats }) {
       errorTileUrl: "",
     }).addTo(map);
 
-    // Jezero crater circle
-    L.circle(JEZERO, {
-      radius: 22500,
+    // Gale krateri (yaklaşık gösterim)
+    L.circle(GALE_CENTER, {
+      radius: 120000,
       color: "#FFAA0050",
       weight: 1,
       fillColor: "#FFAA0010",
@@ -62,7 +63,7 @@ export default function RoverMap({ stats }) {
       .bindPopup(`
         <div style="background:#080C14;color:#BCC8D4;padding:10px;border:1px solid #1A2535;font-family:JetBrains Mono,monospace;font-size:11px;min-width:180px;">
           <p style="color:#9060FF;font-weight:bold;font-size:12px;">İNİŞ BÖLGESİ</p>
-          <p style="color:#708090;margin-top:6px;">SOL 0 — Rover Mars yüzeyine iniş yaptı</p>
+          <p style="color:#708090;margin-top:6px;">MSL Curiosity — Gale Krateri (Bradbury İniş)</p>
           <p style="color:#506070;margin-top:4px;">${LANDING[0].toFixed(4)}°K, ${LANDING[1].toFixed(4)}°D</p>
         </div>
       `, { className: "mars-popup" });
@@ -79,7 +80,7 @@ export default function RoverMap({ stats }) {
       iconAnchor: [10, 10],
     });
 
-    roverMarker.current = L.marker(JEZERO, { icon: roverIcon }).addTo(map)
+    roverMarker.current = L.marker(GALE_CENTER, { icon: roverIcon }).addTo(map)
       .bindPopup("", { className: "mars-popup" });
 
     // Trail polyline
@@ -134,9 +135,9 @@ export default function RoverMap({ stats }) {
     }
   };
 
-  const focusJezero = () => {
+  const focusGale = () => {
     if (mapInstance.current) {
-      mapInstance.current.flyTo(JEZERO, 6, { duration: 1 });
+      mapInstance.current.flyTo(GALE_CENTER, 6, { duration: 1 });
     }
   };
 
@@ -151,8 +152,8 @@ export default function RoverMap({ stats }) {
         </div>
         <div className="flex gap-2">
           <button onClick={focusRover} className="n-btn-primary text-xs py-2 px-4">ROVER'A ODAKLAN</button>
-          <button onClick={focusJezero} className="n-btn-primary text-xs py-2 px-4" style={{ borderColor: "#FFAA0040", color: "#FFAA00", background: "#FFAA0010" }}>
-            JEZERO KRATERİ
+          <button onClick={focusGale} type="button" className="n-btn-primary text-xs py-2 px-4" style={{ borderColor: "#FFAA0040", color: "#FFAA00", background: "#FFAA0010" }}>
+            GALE KRATERİ
           </button>
         </div>
       </div>
@@ -217,10 +218,10 @@ export default function RoverMap({ stats }) {
           </div>
 
           <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>JEZERO KRATERİ</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>GALE KRATERİ (MSL)</p>
             <div className="space-y-2 text-sm leading-relaxed" style={{ color: "#708090" }}>
-              <p><span style={{ color: "#BCC8D4" }}>~45 km</span> çapında darbe krateri.</p>
-              <p>Delta çökeltileri <span style={{ color: "#00FF88" }}>mikrobiyel fosil</span> potansiyeli taşır.</p>
+              <p><span style={{ color: "#BCC8D4" }}>NASA MSL (Curiosity)</span> görev alanı; veri seti bu uzay aracı telemetrisine dayanır.</p>
+              <p>Harita, simüle rover konumunu Gale çevresinde gösterir (yaklaşık koordinatlar).</p>
             </div>
           </div>
 

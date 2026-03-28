@@ -4,24 +4,47 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import async_session, engine, Base
-from simulator import generate_sensor_readings, get_rover_state
+from database import async_session
+from earth_cloud import EarthCloudSimulator
 from edge_processor import EdgeProcessor
-from routers import sensor_data, anomalies, websocket as ws_router, uplink_queue
+from energy_controller import EnergyController
+from orbiter_processor import OrbiterProcessor
+from river_learner import RiverLearner
+from rl_agent import RLAgent
+from routers import (
+    anomalies,
+    model_updates as model_updates_router,
+    nasa,
+    orbiter as orbiter_router,
+    sensor_data,
+    uplink_queue,
+    websocket as ws_router,
+)
 from routers.websocket import broadcast
+from simulator import generate_sensor_readings, get_rover_state
 import crud
 
 logger = logging.getLogger(__name__)
-processor = EdgeProcessor()
+
+river = RiverLearner()
+energy = EnergyController()
+rl = RLAgent()
+orb = OrbiterProcessor()
+earth = EarthCloudSimulator()
+processor = EdgeProcessor(
+    river_learner=river,
+    energy_controller=energy,
+    rl_agent=rl,
+)
 
 
 async def simulation_loop() -> None:
     while True:
         try:
             raw_readings = generate_sensor_readings()
-            processed, anomaly_events, transmission_log = processor.process_batch(raw_readings)
+            energy.record_processing_load(len(raw_readings))
+            processed, anomaly_events, transmission_log = await processor.process_batch(raw_readings)
 
             async with async_session() as db:
                 await crud.bulk_create_readings(db, processed, anomaly_events, transmission_log)
@@ -53,7 +76,6 @@ async def stats_broadcast_loop() -> None:
             rover = get_rover_state()
             tr = overview["total_readings"]
             tx = overview.get("transmitted_readings", 0)
-            # Paket / iletim sayıları: yalnızca DB (edge belleği süreç ömrüyle sınırlı; yenilemede düşmez)
             await broadcast(
                 {
                     "type": "stats_update",
@@ -67,6 +89,9 @@ async def stats_broadcast_loop() -> None:
                         "total_bytes_saved": overview["total_bytes_saved"],
                         "rover": rover,
                         "uplink_queue": qsnap,
+                        "river_stats": river.get_model_stats(),
+                        "energy_stats": energy.get_energy_stats(),
+                        "rl_stats": rl.get_rl_stats(),
                     },
                 }
             )
@@ -96,17 +121,83 @@ async def uplink_drain_loop() -> None:
             logger.exception("uplink_drain_loop failed")
 
 
+async def energy_update_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(10)
+            energy.tick_battery()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("energy_update_loop failed")
+
+
+async def orbiter_drain_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(15)
+            async with async_session() as db:
+                await crud.process_orbiter_drain(db, orb, max_items=24)
+                await db.commit()
+            meta = orb.tick_flush_if_due()
+            if meta:
+                async with async_session() as db:
+                    await crud.insert_orbiter_relay_log(db, meta)
+                    await db.commit()
+                await broadcast({"type": "orbiter_stats", "data": orb.get_ws_stats()})
+                earth.on_orbiter_batch()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("orbiter_drain_loop failed")
+
+
+async def earth_sync_loop() -> None:
+    while True:
+        try:
+            await asyncio.sleep(8)
+            if not earth.consume_if_ready(20):
+                continue
+            async with async_session() as db:
+                rate = await crud.get_recent_anomaly_rate(db)
+                payload = earth.build_update_payload(rate)
+                await crud.create_model_update(db, payload)
+                await db.commit()
+            earth.apply_to_rl(rl, payload["threshold_suggestion"])
+            await broadcast(
+                {
+                    "type": "model_update",
+                    "data": {
+                        "model_version": payload["model_version"],
+                        "threshold_suggestion": payload["threshold_suggestion"],
+                        "federated_round": payload["federated_round"],
+                    },
+                }
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("earth_sync_loop failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     sim_task = asyncio.create_task(simulation_loop())
     stats_task = asyncio.create_task(stats_broadcast_loop())
     uplink_task = asyncio.create_task(uplink_drain_loop())
+    energy_task = asyncio.create_task(energy_update_loop())
+    orbiter_task = asyncio.create_task(orbiter_drain_loop())
+    earth_task = asyncio.create_task(earth_sync_loop())
     yield
-    sim_task.cancel()
-    stats_task.cancel()
-    uplink_task.cancel()
+    for t in (
+        sim_task,
+        stats_task,
+        uplink_task,
+        energy_task,
+        orbiter_task,
+        earth_task,
+    ):
+        t.cancel()
 
 
 app = FastAPI(
@@ -127,6 +218,9 @@ app.add_middleware(
 app.include_router(sensor_data.router)
 app.include_router(anomalies.router)
 app.include_router(uplink_queue.router)
+app.include_router(nasa.router)
+app.include_router(orbiter_router.router)
+app.include_router(model_updates_router.router)
 app.include_router(ws_router.router)
 
 

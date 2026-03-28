@@ -1,23 +1,41 @@
 # NIRVANA — Astrobiyolojik Sensör Yükü Veri Mimarisi
 
-> NASA'nın gerçek Mars Science Laboratory (Curiosity) rover telemetri verisini Edge Computing mantığıyla işleyen, LSTM tabanlı anomali tespit eden ve ground station dashboard'unda canlı gösteren web uygulaması.
+> NASA **SMAP/MSL Anomaly Detection** veri setindeki MSL (Curiosity) kanallarından gelen telemetriyi **sıralı replay** ile üreten; uçta (edge) anomali skoru, öncelik, sıkıştırma ve **uplink kuyruğu** ile işleyen; PostgreSQL + WebSocket üzerinden ground station dashboard’unda canlı gösteren web uygulaması. Anomali skorunda veri setinin **önceden hesaplanmış LSTM smoothed error** (`.npy`) değerleri kullanılır; çalışma zamanında **TensorFlow/Keras veya `.h5` model yükleme yoktur**. İsteğe bağlı olarak [NASA Open APIs](https://api.nasa.gov/) (APOD, Mars Rover Photos) backend proxy ile **NASA_CANLI** sayfasında gösterilir.
 
 ---
 
 ## 1. Proje Özeti
 
-Bu proje, Mars rover'ından gelen **gerçek NASA telemetri verisini** (SMAP/MSL veri seti) kullanarak:
+Bu proje, **NASA SMAP/MSL Anomaly Detection veri setindeki** MSL (Curiosity) telemetrisini **dosyadan sıralı replay** ederek şu süreçleri modellemek için kullanır:
 
 1. **Veri toplama** — 12 MSL kanalından normalize edilmiş telemetri okuması
 2. **Edge tamponlama** — Ring buffer ile dairesel veri depolama (500 okuma/kanal)
 3. **Anomali tespiti** — Z-score + LSTM smoothed error hibrit yöntemiyle
 4. **Bilimsel önceliklendirme** — Organik molekül (10/10) → Sıcaklık ekstremi (4/10)
 5. **Bant optimizasyonu** — Skor eşiğine göre paket filtreleme + uplink yükü için **delta kodlama + zlib (DEFLATE)** ile gerçek ikili sıkıştırma (`compressor.py`)
-6. **DSN iletimi** — Deep Space Network pencere simülasyonu
+6. **DSN iletimi + uplink kuyruğu** — Yüksek öncelikli okumalar `uplink_queue` tablosunda bekletilir; `uplink_drain_loop` periyodik olarak sınırlı sayıda paket “gönderilir” ve WebSocket ile güncellenir
 7. **Ground station dashboard** — Gerçek zamanlı WebSocket ile canlı gösterim
 8. **VERİ_AKIŞI ekranı** — 8 adımlı uçtan uca pipeline animasyonu (ayarlanabilir hız, ilerleme çubuğu, canlı `stats_update` metrikleri)
+9. **NASA_CANLI (isteğe bağlı)** — `NASA_API_KEY` tanımlıysa APOD ve Mars fotoğrafları (manifest ile son N görsel veya tarih/sol filtresi).
 
-süreçlerini uçtan uca simüle eder.
+Bu liste, hackathon konusuyla uyumlu **uçtan uca edge + ground station** akışının yazılım prototipidir; canlı Mars bağlantısı veya uçta Keras çıkarımı içermez.
+
+### 1.1 Metodoloji, şeffaflık ve veri modeli
+
+**Edge kararı ve ground truth**  
+NASA veri setindeki etiketli anomali bölgeleri (`labeled_anomalies.csv`) simülatörde okunur ve her kayıtta `ground_truth_anomaly` alanına *yalnızca izleme / değerlendirme* için yazılır. **Edge işlemcisinde `is_anomaly` yalnızca skor tabanlıdır** (ör. eşik ≥ 50, LSTM smoothed error veya z-score türevi); veri seti etiketi karara **katılmaz** — böylece ground-truth leakage önlenir. Karşılaştırmalı analiz için DB’de hem edge çıktısı (`is_anomaly`) hem veri seti etiketi (`ground_truth_anomaly`) bir arada tutulur.
+
+**Kanal izlenebilirliği**  
+MSL kanal kimliği (`T-1`, `M-6`, `C-1`, …) `sensor_readings.channel_id` sütununda saklanır.
+
+**Görev ve UI tutarlılığı**  
+Telemetri kaynağı **MSL (Curiosity)** veri setidir. Harita ve yan metinler **Gale Krateri / Bradbury İniş** bölgesiyle uyumludur; Jezero veya Perseverance’a özgü enstrüman adları (ör. PIXL, SHERLOC) varsayılan anlatıda kullanılmaz; sensör açıklamaları REMS / SAM / ChemCam bağlamıyla hizalanır.
+
+**VERİ_AKIŞI sayfası**  
+Sekiz adımlı animasyon ve metinler **pedagojik şema / sahnelemedir**; gerçek rover uçuş yazılım yığınının birebir kopyası değildir. Sayısal metrikler mümkün olduğunca backend’deki canlı istatistiklere bağlanır.
+
+**Veritabanı şeması**  
+Tablolar **yalnızca Alembic** ile oluşturulur ve güncellenir (`alembic upgrade head`). Uygulama başlangıcında `metadata.create_all` **kullanılmaz**.
 
 ---
 
@@ -58,9 +76,11 @@ Orijinal çalışma: *"Detecting Spacecraft Anomalies Using LSTMs and Nonparamet
 
 > Her kanalda ilk sütun telemetri değeri, kalan sütunlar komut one-hot encoding'leridir.
 
-### Önceden Eğitilmiş LSTM Modeli
+### Önceden Eğitilmiş LSTM Modeli (veri seti dosyaları)
 
-Veri seti içinde NASA'nın eğittiği LSTM modeli ve çıktıları bulunur:
+**Çalışma zamanı:** Uygulama yalnızca `smoothed_errors/*.npy` (ve gerekirse z-score) kullanır; `.h5` dosyaları repoda **araştırma / eğitim mirası** olarak durur, backend bunları **yükleyip çıkarım yapmaz**.
+
+Veri seti içinde eğitilmiş LSTM modeli ve türev çıktılar bulunur:
 
 | Dosya | Açıklama |
 |-------|----------|
@@ -99,32 +119,36 @@ Recall:           %80.0
 ## 3. Sistem Mimarisi
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    MARS ROVER (EDGE KATMANI)                    │
-│                                                                 │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
-│  │ NASA MSL │    │  Ring    │    │ Anomali  │    │ Öncelik  │  │
-│  │ Telemetri│───▶│ Buffer  │───▶│ Tespiti  │───▶│ Motoru   │  │
-│  │ Replay   │    │ (500/ch)│    │ Z+LSTM   │    │ (1-10)   │  │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
-│                                        │                        │
-│                              ┌─────────┴─────────┐              │
-│                              │ Filtre + sıkıştırma│              │
-│                              │ skor<50: DROP     │              │
-│                              │ skor≥50: TX       │              │
-│                              │ Delta → zlib DEFL │              │
-│                              └─────────┬─────────┘              │
-└────────────────────────────────────────┼────────────────────────┘
-                                         │ DSN İletimi
-                                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   YER İSTASYONU (GROUND STATION)                │
-│                                                                 │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
-│  │ FastAPI  │    │PostgreSQL│    │WebSocket │    │  React   │  │
-│  │ REST API │───▶│ Veritab. │───▶│ Broadcast│───▶│Dashboard │  │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+KATMAN 1 — SENSOR LAYER
+  MSL .npy replay (12 kanal) ─────────────────────────────────────────────┐
+                                                                          │
+KATMAN 2 — ROVER / EDGE 1                                                 ▼
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ Ring buffer (500/kanal) · LSTM/z + River HalfSpaceTrees hibrit skor │
+  │ Novelty (cosine, son 1000 vektör) · is_novel → öncelik +2           │
+  │ EnergyController: batarya simülasyonu → eşik + zlib seviyesi      │
+  │ RLAgent (Q-tablo ε-greedy) → eşik ince ayarı · pickle kalıcılık     │
+  │ Filtre: skor < eşik DROP · skor ≥ eşik → uplink_queue + orbiter_queue│
+  │ Delta + zlib DEFLATE (uplink drain anında)                           │
+  └───────────────────────────────┬──────────────────────────────────────┘
+                                  │ DSN uplink (10s) · orbiter drain (15s)
+                                  ▼
+KATMAN 3 — ORBITER / EDGE 2
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ orbiter_queue → skor < 40 DROP · 30 sn batch pencere                │
+  │ relay_latency_ms, pass_id · orbiter_relay_log · WS orbiter_stats    │
+  └───────────────────────────────┬──────────────────────────────────────┘
+                                  │ (simüle downlink)
+                                  ▼
+KATMAN 4 — EARTH / CLOUD (simüle)
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ Her 20 orbiter batch’te model_updates (eşik önerisi, federated round)│
+  │ RL epsilon geri beslemesi · WS model_update                          │
+  └───────────────────────────────┬──────────────────────────────────────┘
+                                  ▼
+GROUND STATION (FastAPI + PostgreSQL + WebSocket + React)
+  sensor_readings · anomaly_events · transmission_log · uplink_queue ·
+  orbiter_queue · orbiter_relay_log · model_updates · NASA proxy
 ```
 
 ---
@@ -152,7 +176,7 @@ Her sensör tipi için son 500 okuma ring buffer'da tutulur. Bu buffer, z-score 
 
 #### Yöntem A: LSTM Smoothed Error (Birincil)
 
-Veri setinde önceden hesaplanmış `smoothed_errors` varsa doğrudan kullanılır:
+Veri setinde önceden hesaplanmış `smoothed_errors` `.npy` dosyaları varsa doğrudan kullanılır (Keras çalıştırılmaz):
 
 ```
 anomaly_score = min(100, smoothed_error × 300)
@@ -223,9 +247,13 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 İletilen veriler WebSocket üzerinden React dashboard'a aktarılır:
 
 ```json
-{"type": "sensor_reading", "data": {...}}   // Her okuma
-{"type": "anomaly_alert", "data": {...}}    // Anomali tespiti
-{"type": "stats_update", "data": {...}}     // ~5 saniyede bir özet (edge + DB + rover + payload_deflate_* )
+{"type": "sensor_reading", "data": {...}}       // Simülasyon veya uplink’ten gelen okuma
+{"type": "anomaly_alert", "data": {...}}        // Anomali tespiti
+{"type": "stats_update", "data": {...}}         // ~5 s: DB özet + edge istatistikleri + rover + uplink_queue
+{"type": "uplink_queue_update", "data": {...}}  // Kuyruk drain sonrası güncel snapshot
+{"type": "orbiter_stats", "data": {...}}        // Orbiter Edge2 özet metrikleri
+{"type": "model_update", "data": {...}}         // Earth/Cloud model önerisi (federated)
+// stats_update içi: river_stats, energy_stats, rl_stats (ayrıca tek başına energy_stats / rl_stats WS ile de gelebilir)
 ```
 
 ---
@@ -235,11 +263,12 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 | Katman | Teknoloji | Kullanım |
 |--------|-----------|----------|
 | Backend | Python 3.11+, FastAPI | REST API + WebSocket |
+| HTTP istemcisi | httpx | NASA Open API proxy (`/api/nasa/*`) |
 | ORM | SQLAlchemy (async) | PostgreSQL bağlantısı |
 | Veritabanı | PostgreSQL 16 | Zaman serisi depolama |
 | Migration | Alembic | Şema yönetimi |
 | Veri İşleme | NumPy, Pandas | NASA .npy okuma, istatistik |
-| ML Model | LSTM (Keras .h5) | Anomali tahmin (önceden eğitilmiş) |
+| Anomali sinyali | LSTM pipeline çıktısı (`.npy`) | `smoothed_errors`; `.h5` yalnızca veri setinde, runtime’da yok |
 | Frontend | React 18, Vite | SPA dashboard |
 | Grafik | Recharts | Zaman serisi görselleştirme |
 | Stil | Tailwind CSS | Cyberpunk neon tema |
@@ -252,15 +281,22 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 | Method | Endpoint | Açıklama |
 |--------|----------|----------|
 | GET | `/health` | Sistem sağlık kontrolü |
-| GET | `/api/sensor-data` | Son okumalar (sayfalama destekli) |
-| GET | `/api/sensor-data/{id}` | Tek okuma detayı |
+| GET | `/api/sensor-data` | Son okumalar (`skip`, `limit`, isteğe bağlı `sensor_type`) |
 | GET | `/api/sensor-data/stats` | Sensör tipi istatistikleri |
-| POST | `/api/sensor-data/simulate` | Manuel tek okuma tetikle |
-| GET | `/api/anomalies` | Anomali listesi (severity filtre) |
+| GET | `/api/sensor-data/{id}` | Tek okuma detayı (UUID) |
+| POST | `/api/sensor-data/simulate` | Manuel simülasyon batch’i (tek istekte çoklu okuma) |
+| GET | `/api/anomalies` | Anomali listesi (`severity`, `acknowledged`, sayfalama) |
 | GET | `/api/anomalies/recent` | Son 10 anomali |
-| PATCH | `/api/anomalies/{id}/acknowledge` | Anomaliyi onayla |
 | GET | `/api/anomalies/stats` | Anomali tipi dağılımı |
-| WS | `/ws/live-feed` | Gerçek zamanlı veri akışı |
+| GET | `/api/anomalies/{id}/detail` | İlişkili sensör okuması ile anomali detayı |
+| PATCH | `/api/anomalies/{id}/acknowledge` | Anomaliyi onayla |
+| GET | `/api/uplink-queue` | Uplink kuyruğu anlık görünümü (snapshot) |
+| GET | `/api/nasa/apod` | APOD proxy (`date` isteğe bağlı); `NASA_API_KEY` gerekir |
+| GET | `/api/nasa/mars-photos/{rover}` | Mars fotoğrafları (`earth_date` veya `sol`, `camera`, `page`) |
+| GET | `/api/nasa/mars-photos-recent/{rover}` | Manifest’ten en güncel sol’lara göre son N fotoğraf (`limit`) |
+| GET | `/api/orbiter-log` | Orbiter relay log kayıtları |
+| GET | `/api/model-updates` | Earth/Cloud simülasyonu `model_updates` geçmişi |
+| WS | `/ws/live-feed` | Gerçek zamanlı akış (aşağıdaki mesaj tipleri) |
 
 ---
 
@@ -268,11 +304,18 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 
 | Sayfa | İçerik |
 |-------|--------|
-| GÖSTERGE_PANELİ | Metrik kartlar, anomali grafiği, bant analizi, canlı tablo |
-| VERİ_AKIŞI | 8 adım: toplama → tampon → LSTM+z-score → karar → öncelik → delta+DEFLATE+filtre → DSN → yer istasyonu; canvas akışı, **YAVAŞ/NORMAL/HIZLI** hız, ilerleme çubuğu, aktif adım takibi, canlı paket/DEFLATE metrikleri |
-| ANOMALİ_TESPİT | Alarm merkezi — severity filtre, onaylama, bilimsel öncelik |
-| TELEMETRİ | Canlı sensör veri akışı tablosu |
-| İLETİM_ANALİZİ | Bant tasarrufu, paket iletim oranı, **delta+DEFLATE** oranı ve tasarruf yüzdesi, DSN özeti |
+| GÖSTERGE_PANELİ | Metrik kartları, anomali grafiği, bant göstergesi, ham veri akışı tablosu (sütunlarda kanal, TX = iletilmiş) |
+| VERİ_AKIŞI | 8 adım: pedagojik pipeline (canvas animasyon, hız, ilerleme); canlı `stats_update` metrikleri |
+| ANOMALİ_TESPİT | Alarm merkezi — severity filtre, onaylama, detay |
+| SENSÖR_DETAY | Sensör bazlı özet ve anomali bağlamı |
+| TELEMETRİ | Canlı telemetri görünümü |
+| ROVER_HARİTA | Rover konum / harita bağlamı |
+| İLETİM_ANALİZİ | Paket iletimi, bant tasarrufu, delta + DEFLATE özeti |
+| UPLINK_KUYRUĞU | Bekleyen / gönderilen uplink kuyruğu (`stats.uplink_queue`) |
+| ORBITER_RÖLE | Orbiter Edge2: kuyruk, 30 sn pencere, düşük skor (eşik 40) paket düşürme, `orbiter_stats` |
+| YER_İSTASYONU_BULUT | Earth/Cloud: 20 relay batch sonrası `model_update`, RL epsilon geri beslemesi |
+| VERİ_SETİ | Veri seti bilgi paneli |
+| NASA_CANLI | APOD + Mars rover fotoğrafları (varsayılan: son 50 görsel; isteğe bağlı dünya tarihi) |
 
 ---
 
@@ -283,10 +326,12 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 |-------|-----|----------|
 | id | UUID | Primary key |
 | sensor_type | VARCHAR(10) | TEMP, CH4, O2, CO2, MOIST, SPEC, UV, PRESS |
+| channel_id | VARCHAR(20) | MSL kanal kimliği (örn. T-1, M-6); izlenebilirlik |
 | raw_value | FLOAT | Normalize telemetri değeri [-1, 1] |
 | unit | VARCHAR(20) | Ölçü birimi |
 | anomaly_score | FLOAT | 0-100 arası hesaplanan skor |
-| is_anomaly | BOOLEAN | Anomali tespiti sonucu |
+| is_anomaly | BOOLEAN | Edge kararı (yalnızca skor tabanlı; etiket sızması yok) |
+| ground_truth_anomaly | BOOLEAN | Veri seti etiketi (değerlendirme; edge kararına dahil değil) |
 | is_transmitted | BOOLEAN | DSN üzerinden iletildi mi |
 | location_lat | FLOAT | Rover Mars koordinatı |
 | location_lon | FLOAT | Rover Mars koordinatı |
@@ -326,33 +371,44 @@ tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 docker-compose up -d
 ```
 
-### 2. Backend Kurulumu
+### 2. Ortam değişkenleri
+
+`backend/.env` (`.env.example` şablonu):
+
+| Değişken | Açıklama |
+|----------|----------|
+| `DATABASE_URL` | Zorunlu: async uygulama (`postgresql+asyncpg://...`) |
+| `DATABASE_URL_SYNC` | Örnek dosyada yer alır; Alembic bu repoda varsayılan olarak `alembic.ini` içindeki `sqlalchemy.url` ile çalışır |
+| `NASA_API_KEY` | İsteğe bağlı; boşsa `/api/nasa/*` 503 döner |
+
+### 3. Backend Kurulumu
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
-### 3. Veritabanı Migration
+### 4. Veritabanı migration (zorunlu)
+Şema yalnızca Alembic ile güncellenir; sunucuyu başlatmadan önce:
 ```bash
 cd backend
 alembic upgrade head
 ```
 
-### 4. Backend Sunucu
+### 5. Backend Sunucu
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-### 5. Frontend
+### 6. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 6. Aç
-Tarayıcıda [http://localhost:5173](http://localhost:5173)
+### 7. Aç
+Tarayıcıda [http://localhost:5173](http://localhost:5173). Geliştirmede `vite.config.js` `/api` ve `/ws` isteklerini `http://localhost:8000` adresine yönlendirir. `main.py` içindeki CORS listesi varsayılan olarak yalnızca `localhost:5173` / `127.0.0.1:5173` içindir; üretimde genelde nginx ile aynı kökenden servis edilir.
 
 ---
 
@@ -361,33 +417,39 @@ Tarayıcıda [http://localhost:5173](http://localhost:5173)
 ```
 mars-rover-dashboard/
 ├── backend/
-│   ├── main.py                 # FastAPI app, lifespan, CORS
-│   ├── database.py             # AsyncPG engine, session
-│   ├── models.py               # SQLAlchemy ORM modelleri
-│   ├── schemas.py              # Pydantic request/response
-│   ├── crud.py                 # Veritabanı CRUD operasyonları
-│   ├── simulator.py            # NASA MSL veri replay motoru
-│   ├── edge_processor.py       # Hibrit anomali tespit + karar + batch sıkıştırma metrikleri
-│   ├── compressor.py           # Delta kodlama + zlib DEFLATE (uplink yükü)
-│   ├── requirements.txt        # Python bağımlılıkları
-│   ├── alembic.ini             # Migration config
-│   ├── alembic/                # Migration dosyaları
+│   ├── main.py                 # FastAPI, lifespan: simülasyon + stats + uplink drain; CORS
+│   ├── database.py             # Async engine, session, load_dotenv
+│   ├── models.py               # sensor_readings, anomaly_events, transmission_log, uplink_queue
+│   ├── schemas.py              # Pydantic şemalar
+│   ├── crud.py                 # CRUD, istatistikler, uplink drain
+│   ├── simulator.py            # MSL test .npy replay, rover durumu
+│   ├── edge_processor.py     # Anomali skoru, iletim kararı, batch codec metrikleri
+│   ├── compressor.py           # Delta + zlib DEFLATE
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── alembic.ini
+│   ├── alembic/
+│   │   ├── env.py
+│   │   └── versions/           # 001_initial_schema, 002_uplink_queue, 003_channel_ground_truth
 │   ├── routers/
-│   │   ├── sensor_data.py      # /api/sensor-data endpoints
-│   │   ├── anomalies.py        # /api/anomalies endpoints
-│   │   └── websocket.py        # /ws/live-feed WebSocket
-│   └── data/                   # NASA SMAP/MSL veri seti
-│       ├── train/              # Eğitim verisi (.npy)
-│       ├── test/               # Test verisi (.npy) — replay kaynağı
+│   │   ├── sensor_data.py
+│   │   ├── anomalies.py
+│   │   ├── uplink_queue.py
+│   │   ├── nasa.py             # NASA Open API proxy
+│   │   └── websocket.py
+│   └── data/                   # NASA SMAP/MSL veri seti (replay + smoothed_errors, .h5 mirası)
+│       ├── train/
+│       ├── test/
 │       ├── labeled_anomalies.csv
 │       └── 2018-05-19_15.00.10/
-│           ├── models/         # LSTM modelleri (.h5)
-│           ├── y_hat/          # LSTM tahminleri
-│           ├── smoothed_errors/# Düzeltilmiş hata skorları
-│           └── params.log      # Model parametreleri
+│           ├── models/         # .h5 (runtime kullanılmaz)
+│           ├── y_hat/
+│           ├── smoothed_errors/
+│           └── params.log
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx
+│   │   ├── main.jsx
 │   │   ├── components/
 │   │   │   ├── Dashboard.jsx
 │   │   │   ├── MetricCards.jsx
@@ -396,25 +458,33 @@ mars-rover-dashboard/
 │   │   │   ├── BandwidthGauge.jsx
 │   │   │   ├── AlertCenter.jsx
 │   │   │   ├── PipelineAnimation.jsx
+│   │   │   ├── SensorDetail.jsx
+│   │   │   ├── RoverMap.jsx
+│   │   │   ├── Telemetry.jsx
+│   │   │   ├── TransmissionLog.jsx
+│   │   │   ├── UplinkQueue.jsx
+│   │   │   ├── DatasetInfo.jsx
+│   │   │   ├── NasaFeed.jsx
 │   │   │   └── ConnectionStatus.jsx
 │   │   ├── hooks/
 │   │   │   ├── useWebSocket.js
 │   │   │   └── useAnomalyData.js
 │   │   └── utils/formatters.js
-│   ├── index.html
-│   ├── vite.config.js
+│   ├── vite.config.js          # /api ve /ws → localhost:8000 proxy
 │   ├── tailwind.config.js
 │   └── package.json
-├── docker-compose.yml
-├── deploy_fast.py              # Paramiko: dist + backend yükleme, systemd/nginx (kimlik bilgilerini güvenli tutun)
+├── docker-compose.yml            # PostgreSQL
+├── deploy_sync.py                # Önerilen: yerel npm build + SFTP + pip + alembic + systemd (host/credentials ayrı dosyada)
+├── deploy_fast.py                # Alternatif paramiko senaryoları (eski/paralel)
+├── deploy_fix5.py                # Sunucu sabitleri (güvenlik: repoda parola tutmayın)
 └── README.md
 ```
 
 ### Üretim sunucusuna yükleme
 
-1. Yerelde `frontend` için `npm run build` çalıştırın (`dist/` oluşmalı).
-2. `deploy_fast.py` içindeki sunucu adresi ve SSH bilgilerini güncelleyin; mümkünse parolayı betiğe gömme yerine ortam değişkeni veya anahtar dosyası kullanın.
-3. `python deploy_fast.py` — backend dosyaları ( `compressor.py` dahil) ve `frontend/dist` uzak `/opt/nirvana` altına kopyalanır, `nirvana` systemd servisi ve Nginx yeniden başlatılır.
+1. **`deploy_sync.py` (güncel akış):** Yerelde `npm run build` çalıştırır; `backend` + `frontend/dist` ve kaynak aynasını SFTP ile yükler; uzakta `venv` veya Miniconda `pip` ile `requirements.txt` kurar; `alembic upgrade head`; `nirvana` ve nginx yeniden başlatır. Yerel `backend/.env` varsa `/opt/nirvana/backend/.env` olarak kopyalanır; systemd biriminde `EnvironmentFile=-/opt/nirvana/backend/.env` kullanımı script tarafından eklenir.
+2. Sunucu adresi / SSH kimlik bilgileri **`deploy_fix5.py` veya ortam değişkeni** ile yönetilmeli; **parolayı repoya gömmeyin**.
+3. Üretimde `NASA_API_KEY` sunucu `.env` içinde tanımlı olmalıdır (NASA_CANLI için).
 
 ---
 
@@ -425,3 +495,4 @@ mars-rover-dashboard/
 3. NASA Perseverance Science Instruments — science.nasa.gov
 4. Ground Processing of Data From the Mars Exploration Rovers — NASA NTRS.
 5. IP in Deep Space: Key Characteristics — IETF Draft.
+6. [NASA Open APIs](https://api.nasa.gov/) — APOD ve Mars Rover Photos (dashboard **NASA_CANLI** proxy).

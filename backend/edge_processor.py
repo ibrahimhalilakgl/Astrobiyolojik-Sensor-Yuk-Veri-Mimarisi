@@ -1,12 +1,20 @@
+import asyncio
 import uuid
 import random
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 
+import rover_ai
 from compressor import compress_readings_delta_deflate
+from routers.websocket import broadcast
+
+if TYPE_CHECKING:
+    from energy_controller import EnergyController
+    from river_learner import RiverLearner
+    from rl_agent import RLAgent
 
 ANOMALY_TYPE_MAP: Dict[str, str] = {
     "CH4": "methane_spike",
@@ -32,9 +40,19 @@ PRIORITY_MAP: Dict[str, int] = {
 
 DSN_WINDOWS = ["Goldstone-DSS14", "Canberra-DSS43", "Madrid-DSS63"]
 
+_NOVELTY_MAX = 1000
+
 
 class EdgeProcessor:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        river_learner: Optional["RiverLearner"] = None,
+        energy_controller: Optional["EnergyController"] = None,
+        rl_agent: Optional["RLAgent"] = None,
+    ) -> None:
+        self._river = river_learner
+        self._energy = energy_controller
+        self._rl = rl_agent
         self._history: Dict[str, List[float]] = defaultdict(list)
         self._max_history = 500
         self._total_packets = 0
@@ -43,18 +61,17 @@ class EdgeProcessor:
         self._payload_compressed_total = 0
         self._last_payload_serialized = 0
         self._last_payload_compressed = 0
+        self._zlib_level = 6
+        self._novelty_vecs: deque = deque(maxlen=_NOVELTY_MAX)
+        self._last_rl_state: Optional[Tuple[float, float, bool]] = None
+        self._last_rl_action_idx: int = 1
 
     def _update_history(self, sensor_type: str, value: float) -> None:
         self._history[sensor_type].append(value)
         if len(self._history[sensor_type]) > self._max_history:
-            self._history[sensor_type] = self._history[sensor_type][-self._max_history:]
+            self._history[sensor_type] = self._history[sensor_type][-self._max_history :]
 
-    def _compute_anomaly_score(self, reading: dict) -> float:
-        smoothed_err = reading.get("_smoothed_error")
-        if smoothed_err is not None:
-            score = min(100.0, smoothed_err * 300.0)
-            return round(score, 2)
-
+    def _compute_z_style_score(self, reading: dict) -> float:
         sensor_type = reading["sensor_type"]
         value = reading["raw_value"]
         history = self._history[sensor_type]
@@ -70,8 +87,30 @@ class EdgeProcessor:
             sensor_std = 0.01
 
         z_score = abs(value - sensor_mean) / sensor_std
-        score = min(100.0, z_score * 25.0)
-        return round(score, 2)
+        return round(min(100.0, z_score * 25.0), 2)
+
+    def _compute_base_scores(self, reading: dict) -> Tuple[float, float]:
+        smoothed_err = reading.get("_smoothed_error")
+        if smoothed_err is not None:
+            lstm_s = min(100.0, float(smoothed_err) * 300.0)
+            return round(lstm_s, 2), lstm_s
+        z_s = self._compute_z_style_score(reading)
+        return z_s, z_s
+
+    def _novelty_check(self, channel_id: str, raw_value: float) -> Tuple[bool, float]:
+        ch_norm = (hash(channel_id) % 1000) / 1000.0
+        vec = np.array([float(raw_value), float(ch_norm)], dtype=np.float64)
+        nrm = np.linalg.norm(vec) + 1e-9
+        if len(self._novelty_vecs) == 0:
+            self._novelty_vecs.append(vec)
+            return False, 0.0
+        best = -1.0
+        for v in self._novelty_vecs:
+            vn = np.linalg.norm(v) + 1e-9
+            sim = float(np.dot(vec, v) / (nrm * vn))
+            best = max(best, sim)
+        self._novelty_vecs.append(vec)
+        return best < 0.3, float(best)
 
     def _determine_severity(self, score: float) -> str:
         if score >= 90:
@@ -108,26 +147,68 @@ class EdgeProcessor:
         }
         return descriptions.get(anomaly_type, f"Anomali: {chan_label}, değer {value:.4f}, skor {score}.")
 
-    def process_batch(self, raw_readings: List[dict]) -> Tuple[List[dict], List[dict], Optional[dict]]:
-        processed = []
-        anomaly_events = []
-
+    async def process_batch(self, raw_readings: List[dict]) -> Tuple[List[dict], List[dict], Optional[dict]]:
+        anomaly_events: List[dict] = []
+        temps: List[dict] = []
         for reading in raw_readings:
             sensor_type = reading["sensor_type"]
             value = reading["raw_value"]
-
-            score = self._compute_anomaly_score(reading)
             self._update_history(sensor_type, value)
 
-            is_labeled = reading.get("_is_labeled_anomaly", False)
-            is_score_anomaly = score >= 50
-            is_anomaly = is_labeled or is_score_anomaly
-            # Gerçek uplink: kuyruk boşaltılınca is_transmitted=True olur
+            base_for_hybrid, lstm_or_z_display = self._compute_base_scores(reading)
+            smoothed_err = reading.get("_smoothed_error")
+            cid = str(reading.get("_chan_id") or reading.get("channel_id") or sensor_type)
+            if self._river is not None:
+                river_s = self._river.score_and_learn(cid, value)
+                if smoothed_err is not None:
+                    score = round(base_for_hybrid * 0.5 + river_s * 0.5, 2)
+                else:
+                    score = round(base_for_hybrid * 0.4 + river_s * 0.6, 2)
+            else:
+                river_s = float(lstm_or_z_display)
+                score = round(base_for_hybrid, 2)
+
+            reading["_river_score"] = round(float(river_s), 2)
+            reading["_lstm_score"] = round(float(lstm_or_z_display), 2)
+            is_novel, nov_sim = self._novelty_check(cid, value)
+            reading["_novelty_similarity"] = round(float(nov_sim), 4)
+
+            reading["_pending_score"] = score
+            reading["_is_novel"] = is_novel
+            reading["_lstm_or_z"] = lstm_or_z_display
+            temps.append(reading)
+
+        scores = [float(r["_pending_score"]) for r in temps]
+        mean_score = float(np.mean(scores)) if scores else 0.0
+        novel_any = any(r.get("_is_novel") for r in temps)
+
+        base_th, zlib_lvl = (50, 6)
+        if self._energy is not None:
+            base_th, zlib_lvl = self._energy.get_threshold_and_zlib()
+        adj = 0
+        action_idx = 1
+        bat = self._energy.get_battery_level() if self._energy else 50.0
+        if self._rl is not None and self._energy is not None:
+            adj, action_idx = self._rl.get_threshold_adjustment(mean_score, bat, novel_any)
+        threshold = int(max(40, min(85, base_th + adj)))
+        self._zlib_level = zlib_lvl
+        self._last_rl_state = (mean_score, bat, novel_any)
+        self._last_rl_action_idx = action_idx
+
+        processed = []
+        for reading in temps:
+            score = float(reading.pop("_pending_score"))
+            is_novel = bool(reading.pop("_is_novel"))
+            reading.pop("_lstm_or_z", None)
+
+            is_score_anomaly = score >= threshold
+            is_anomaly = is_score_anomaly
             reading["anomaly_score"] = score
             reading["is_anomaly"] = is_anomaly
             reading["is_transmitted"] = False
+            reading["is_novel"] = is_novel
             reading["_is_anomaly_final"] = is_anomaly
-            reading["_uplink_eligible"] = score >= 50
+            reading["_uplink_eligible"] = score >= threshold
 
             self._total_packets += 1
 
@@ -140,19 +221,80 @@ class EdgeProcessor:
             anomaly_type = self._detect_anomaly_type(reading, processed)
             severity = self._determine_severity(reading["anomaly_score"])
             priority = PRIORITY_MAP.get(anomaly_type, 4)
+            if reading.get("is_novel"):
+                priority = min(10, priority + 2)
 
-            anomaly_events.append({
-                "id": uuid.uuid4(),
-                "reading_id": reading["id"],
+            anomaly_events.append(
+                {
+                    "id": uuid.uuid4(),
+                    "reading_id": reading["id"],
+                    "anomaly_type": anomaly_type,
+                    "severity": severity,
+                    "description": self._build_description(
+                        anomaly_type, reading, reading["anomaly_score"]
+                    ),
+                    "scientific_priority": priority,
+                    "acknowledged": False,
+                    "created_at": datetime.now(timezone.utc),
+                }
+            )
+
+        rl_labels = {0: "eşik Δ-5", 1: "eşik nötr", 2: "eşik Δ+5"}
+        energy_level = float(self._energy.get_battery_level()) if self._energy else 50.0
+        for reading in processed:
+            if float(reading.get("anomaly_score", 0)) < 50:
+                continue
+            ch = str(reading.get("_chan_id") or reading.get("channel_id") or reading["sensor_type"])
+            anomaly_type = self._detect_anomaly_type(reading, processed)
+            pri = PRIORITY_MAP.get(anomaly_type, 4)
+            if reading.get("is_novel"):
+                pri = min(10, pri + 2)
+            rl_suggestion = f"RL Δ={adj} — {rl_labels.get(action_idx, f'eylem_{action_idx}')}"
+            ctx = {
+                "channel_id": ch,
+                "sensor_type": reading["sensor_type"],
+                "raw_value": reading["raw_value"],
+                "anomaly_score": reading["anomaly_score"],
+                "river_score": reading.get("_river_score", 0),
+                "lstm_score": reading.get("_lstm_score", 0),
+                "is_novel": bool(reading.get("is_novel")),
+                "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
+                "energy_level": energy_level,
+                "rl_suggestion": rl_suggestion,
+                "scientific_priority": int(pri),
                 "anomaly_type": anomaly_type,
-                "severity": severity,
-                "description": self._build_description(anomaly_type, reading, reading["anomaly_score"]),
-                "scientific_priority": priority,
-                "acknowledged": False,
-                "created_at": datetime.now(timezone.utc),
-            })
+                "uplink_eligible": bool(reading.get("_uplink_eligible")),
+            }
+            try:
+                out = await asyncio.wait_for(rover_ai.think(ctx), timeout=10.0)
+            except asyncio.TimeoutError:
+                out = {
+                    "thinking": "AI thinking devre dışı",
+                    "steps": [],
+                    "decision": "TX" if reading.get("_uplink_eligible") else "DROP",
+                    "duration_ms": 0,
+                    "model": "fallback",
+                }
+            ts = datetime.now(timezone.utc).isoformat()
+            await broadcast(
+                {
+                    "type": "rover_thinking",
+                    "data": {
+                        "channel_id": ch,
+                        "anomaly_score": float(reading["anomaly_score"]),
+                        "thinking": out.get("thinking", ""),
+                        "steps": out.get("steps") or [],
+                        "decision": out.get("decision", "TX"),
+                        "duration_ms": int(out.get("duration_ms", 0)),
+                        "model": out.get("model", "fallback"),
+                        "timestamp": ts,
+                        "is_novel": bool(reading.get("is_novel")),
+                        "novelty_similarity": float(reading.get("_novelty_similarity", 0)),
+                        "energy_level": round(energy_level, 1),
+                    },
+                }
+            )
 
-        # Sıkıştırma metrikleri gerçek uplink anında (drain) birikir
         self._last_payload_serialized = 0
         self._last_payload_compressed = 0
 
@@ -178,6 +320,9 @@ class EdgeProcessor:
         db_readings = []
         for r in processed:
             row = {k: v for k, v in r.items() if not k.startswith("_")}
+            row["channel_id"] = str(r.get("_chan_id") or "")
+            row["ground_truth_anomaly"] = bool(r.get("_is_labeled_anomaly", False))
+            row["is_novel"] = bool(r.get("is_novel", False))
             if r.get("_uplink_eligible"):
                 row["_uplink_eligible"] = True
             db_readings.append(row)
@@ -185,16 +330,38 @@ class EdgeProcessor:
         return db_readings, anomaly_events, transmission_log
 
     def record_uplink_batch(self, sent_readings: List[dict]) -> None:
-        """Kuyruktan çıkan ve DSN ile gönderilen paketler — DEFLATE metrikleri burada."""
         if not sent_readings:
             return
         self._transmitted_packets += len(sent_readings)
-        comp = compress_readings_delta_deflate(sent_readings)
+        comp = compress_readings_delta_deflate(
+            sent_readings, zlib_level=self._zlib_level
+        )
         if comp.serialized_bytes > 0:
             self._payload_serialized_total += comp.serialized_bytes
             self._payload_compressed_total += comp.compressed_bytes
         self._last_payload_serialized = comp.serialized_bytes
         self._last_payload_compressed = comp.compressed_bytes
+
+    def apply_rl_rewards_after_uplink(self, sent_readings: List[dict]) -> None:
+        if not sent_readings or self._rl is None or self._last_rl_state is None:
+            return
+        rep_score, bat, novel = self._last_rl_state
+        ai = self._last_rl_action_idx
+        rewards = []
+        for r in sent_readings:
+            s = float(r.get("anomaly_score", 0))
+            pri_high = s >= 72 and r.get("is_anomaly")
+            waste = s < 58
+            rew = 0.0
+            if pri_high:
+                rew += 10.0
+            if waste:
+                rew -= 5.0
+            if r.get("is_novel"):
+                rew += 5.0
+            rewards.append(rew)
+        reward = float(np.mean(rewards)) if rewards else 0.0
+        self._rl.update_from_action(rep_score, bat, novel, ai, reward)
 
     def get_stats(self) -> dict:
         ratio = round(self._transmitted_packets / self._total_packets, 4) if self._total_packets > 0 else 0.0
