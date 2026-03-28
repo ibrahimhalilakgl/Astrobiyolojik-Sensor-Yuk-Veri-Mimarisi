@@ -1,10 +1,14 @@
-from typing import List, Optional
+import random
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import func, select, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import AnomalyEvent, SensorReading, TransmissionLog
+from models import AnomalyEvent, SensorReading, TransmissionLog, UplinkQueueItem
+
+DSN_STATIONS = ["Goldstone-DSS14", "Canberra-DSS43", "Madrid-DSS63"]
 
 
 async def create_sensor_reading(db: AsyncSession, data: dict) -> SensorReading:
@@ -28,6 +32,10 @@ async def create_transmission_log(db: AsyncSession, data: dict) -> TransmissionL
     return log
 
 
+def _reading_row_for_orm(r: dict) -> dict:
+    return {k: v for k, v in r.items() if not k.startswith("_")}
+
+
 async def bulk_create_readings(
     db: AsyncSession,
     readings: List[dict],
@@ -35,7 +43,17 @@ async def bulk_create_readings(
     transmission: Optional[dict],
 ) -> None:
     for r in readings:
-        db.add(SensorReading(**r))
+        row = _reading_row_for_orm(r)
+        db.add(SensorReading(**row))
+        if r.get("_uplink_eligible"):
+            db.add(
+                UplinkQueueItem(
+                    reading_id=row["id"],
+                    uplink_priority=float(row.get("anomaly_score", 0)),
+                    status="pending",
+                    queued_at=datetime.now(timezone.utc),
+                )
+            )
     for a in anomalies:
         db.add(AnomalyEvent(**a))
     if transmission:
@@ -43,15 +61,122 @@ async def bulk_create_readings(
     await db.flush()
 
 
-async def get_sensor_readings(
-    db: AsyncSession, skip: int = 0, limit: int = 100
-) -> List[SensorReading]:
-    result = await db.execute(
-        select(SensorReading)
-        .order_by(desc(SensorReading.created_at))
-        .offset(skip)
-        .limit(limit)
+def _reading_to_dict(r: SensorReading) -> dict:
+    return {
+        "id": r.id,
+        "sensor_type": r.sensor_type,
+        "raw_value": r.raw_value,
+        "unit": r.unit,
+        "anomaly_score": r.anomaly_score,
+        "is_anomaly": r.is_anomaly,
+        "is_transmitted": r.is_transmitted,
+        "location_lat": r.location_lat,
+        "location_lon": r.location_lon,
+        "sol": r.sol,
+        "created_at": r.created_at,
+    }
+
+
+def _queue_item_pending_dict(item: UplinkQueueItem, r: SensorReading) -> dict:
+    return {
+        "queue_id": str(item.id),
+        "reading_id": str(r.id),
+        "sensor_type": r.sensor_type,
+        "anomaly_score": r.anomaly_score,
+        "uplink_priority": item.uplink_priority,
+        "queued_at": item.queued_at.isoformat() if item.queued_at else None,
+    }
+
+
+def _queue_item_sent_dict(item: UplinkQueueItem, r: SensorReading) -> dict:
+    return {
+        **(_queue_item_pending_dict(item, r)),
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "dsn_station": item.dsn_station,
+    }
+
+
+async def drain_uplink_queue(
+    db: AsyncSession, processor: Any, max_items: int = 6
+) -> List[dict]:
+    stmt = (
+        select(UplinkQueueItem)
+        .where(UplinkQueueItem.status == "pending")
+        .order_by(desc(UplinkQueueItem.uplink_priority), UplinkQueueItem.queued_at)
+        .limit(max_items)
+        .with_for_update(skip_locked=True)
     )
+    res = await db.execute(stmt)
+    items = list(res.scalars().all())
+    payloads: List[dict] = []
+    for item in items:
+        reading = await db.get(SensorReading, item.reading_id)
+        if not reading:
+            item.status = "cancelled"
+            continue
+        reading.is_transmitted = True
+        item.status = "sent"
+        item.sent_at = datetime.now(timezone.utc)
+        item.dsn_station = random.choice(DSN_STATIONS)
+        payloads.append(_reading_to_dict(reading))
+    if payloads:
+        processor.record_uplink_batch(payloads)
+    await db.flush()
+    return payloads
+
+
+async def get_uplink_queue_snapshot(db: AsyncSession) -> Dict[str, Any]:
+    ptot = await db.execute(
+        select(func.count())
+        .select_from(UplinkQueueItem)
+        .where(UplinkQueueItem.status == "pending")
+    )
+    pending_total = int(ptot.scalar() or 0)
+    stot = await db.execute(
+        select(func.count())
+        .select_from(UplinkQueueItem)
+        .where(UplinkQueueItem.status == "sent")
+    )
+    sent_total = int(stot.scalar() or 0)
+
+    pend = await db.execute(
+        select(UplinkQueueItem, SensorReading)
+        .join(SensorReading, UplinkQueueItem.reading_id == SensorReading.id)
+        .where(UplinkQueueItem.status == "pending")
+        .order_by(desc(UplinkQueueItem.uplink_priority), UplinkQueueItem.queued_at)
+        .limit(100)
+    )
+    pending_rows = [
+        _queue_item_pending_dict(item, r) for item, r in pend.all()
+    ]
+
+    sent = await db.execute(
+        select(UplinkQueueItem, SensorReading)
+        .join(SensorReading, UplinkQueueItem.reading_id == SensorReading.id)
+        .where(UplinkQueueItem.status == "sent")
+        .order_by(desc(UplinkQueueItem.sent_at))
+        .limit(60)
+    )
+    sent_rows = [_queue_item_sent_dict(item, r) for item, r in sent.all()]
+
+    return {
+        "pending_total": pending_total,
+        "sent_total": sent_total,
+        "pending": pending_rows,
+        "recent_sent": sent_rows,
+    }
+
+
+async def get_sensor_readings(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    sensor_type: Optional[str] = None,
+) -> List[SensorReading]:
+    q = select(SensorReading).order_by(desc(SensorReading.created_at))
+    if sensor_type:
+        q = q.where(SensorReading.sensor_type == sensor_type)
+    result = await db.execute(q.offset(skip).limit(limit))
     return list(result.scalars().all())
 
 
@@ -187,6 +312,7 @@ async def get_overview_stats(db: AsyncSession) -> dict:
 
     return {
         "total_readings": total_readings,
+        "transmitted_readings": transmitted,
         "total_anomalies": total_anomalies,
         "bandwidth_saved_percent": saved_pct,
         "highest_severity": highest,

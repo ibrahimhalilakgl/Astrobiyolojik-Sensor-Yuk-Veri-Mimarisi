@@ -14,10 +14,17 @@ router = APIRouter(prefix="/api/sensor-data", tags=["Sensor Data"])
 @router.get("", response_model=list[SensorReadingResponse])
 async def list_sensor_readings(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=5000),
+    sensor_type: Optional[str] = Query(
+        None,
+        max_length=10,
+        description="Örn. TEMP, CH4 — verilirse yalnızca bu tip için son kayıtlar",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
-    readings = await crud.get_sensor_readings(db, skip=skip, limit=limit)
+    readings = await crud.get_sensor_readings(
+        db, skip=skip, limit=limit, sensor_type=sensor_type
+    )
     return readings
 
 

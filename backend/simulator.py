@@ -1,3 +1,4 @@
+import math
 import os
 import uuid
 import ast
@@ -152,11 +153,17 @@ def generate_sensor_readings() -> List[dict]:
 
 
 def get_rover_state() -> dict:
+    # Dünya–Mars ışık süresi tek yön tipik ~3–22 dk (konjunksiyon–opozisyon); yavaş salınım ile gösterim
+    t = _loader.tick_count * 0.07
+    light_one_way = 12.5 + 9.0 * math.sin(t)
+    light_one_way = max(3.5, min(21.5, light_one_way))
     return {
         "lat": round(_loader.lat, 6),
         "lon": round(_loader.lon, 6),
         "sol": _loader.sol,
         "tick_count": _loader.tick_count,
+        "light_delay_min_one_way": round(light_one_way, 1),
+        "light_delay_min_round_trip": round(light_one_way * 2, 1),
     }
 
 

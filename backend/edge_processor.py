@@ -122,16 +122,14 @@ class EdgeProcessor:
             is_labeled = reading.get("_is_labeled_anomaly", False)
             is_score_anomaly = score >= 50
             is_anomaly = is_labeled or is_score_anomaly
-            is_transmitted = score >= 50
-
+            # Gerçek uplink: kuyruk boşaltılınca is_transmitted=True olur
             reading["anomaly_score"] = score
             reading["is_anomaly"] = is_anomaly
-            reading["is_transmitted"] = is_transmitted
+            reading["is_transmitted"] = False
             reading["_is_anomaly_final"] = is_anomaly
+            reading["_uplink_eligible"] = score >= 50
 
             self._total_packets += 1
-            if is_transmitted:
-                self._transmitted_packets += 1
 
             internal_keys = [k for k in reading if k.startswith("_")]
             clean_reading = {k: v for k, v in reading.items() if not k.startswith("_")}
@@ -154,18 +152,14 @@ class EdgeProcessor:
                 "created_at": datetime.now(timezone.utc),
             })
 
-        tx_for_compress = [r for r in processed if r["is_transmitted"]]
-        comp = compress_readings_delta_deflate(tx_for_compress)
-        if comp.serialized_bytes > 0:
-            self._payload_serialized_total += comp.serialized_bytes
-            self._payload_compressed_total += comp.compressed_bytes
-        self._last_payload_serialized = comp.serialized_bytes
-        self._last_payload_compressed = comp.compressed_bytes
+        # Sıkıştırma metrikleri gerçek uplink anında (drain) birikir
+        self._last_payload_serialized = 0
+        self._last_payload_compressed = 0
 
         transmission_log = None
         if self._total_packets > 0:
             total = len(raw_readings)
-            transmitted = len([r for r in processed if r["is_transmitted"]])
+            transmitted = len([r for r in processed if r.get("_uplink_eligible")])
             bytes_per_packet = 256
             bytes_saved = (total - transmitted) * bytes_per_packet
             compression_ratio = round(transmitted / total, 4) if total > 0 else 1.0
@@ -186,6 +180,18 @@ class EdgeProcessor:
             db_readings.append({k: v for k, v in r.items() if not k.startswith("_")})
 
         return db_readings, anomaly_events, transmission_log
+
+    def record_uplink_batch(self, sent_readings: List[dict]) -> None:
+        """Kuyruktan çıkan ve DSN ile gönderilen paketler — DEFLATE metrikleri burada."""
+        if not sent_readings:
+            return
+        self._transmitted_packets += len(sent_readings)
+        comp = compress_readings_delta_deflate(sent_readings)
+        if comp.serialized_bytes > 0:
+            self._payload_serialized_total += comp.serialized_bytes
+            self._payload_compressed_total += comp.compressed_bytes
+        self._last_payload_serialized = comp.serialized_bytes
+        self._last_payload_compressed = comp.compressed_bytes
 
     def get_stats(self) -> dict:
         ratio = round(self._transmitted_packets / self._total_packets, 4) if self._total_packets > 0 else 0.0

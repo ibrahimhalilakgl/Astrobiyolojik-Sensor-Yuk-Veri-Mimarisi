@@ -6,13 +6,14 @@ const WS_URL = `ws://${window.location.hostname}:${window.location.port}/ws/live
 
 export default function App() {
   const { status, lastMessage } = useWebSocket(WS_URL);
-  const { readings, anomalies, chartData, stats, acknowledgeAnomaly } =
+  const { readings, readingsByType, anomalies, chartData, stats, acknowledgeAnomaly } =
     useAnomalyData(lastMessage);
 
   return (
     <Dashboard
       wsStatus={status}
       readings={readings}
+      readingsByType={readingsByType}
       anomalies={anomalies}
       chartData={chartData}
       stats={stats}

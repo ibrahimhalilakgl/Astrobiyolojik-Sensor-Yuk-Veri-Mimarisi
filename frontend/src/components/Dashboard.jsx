@@ -11,6 +11,7 @@ import DatasetInfo from "./DatasetInfo";
 import RoverMap from "./RoverMap";
 import Telemetry from "./Telemetry";
 import TransmissionLog from "./TransmissionLog";
+import UplinkQueue from "./UplinkQueue";
 
 const NAV = [
   { id: "dashboard", label: "GÖSTERGE_PANELİ" },
@@ -20,10 +21,11 @@ const NAV = [
   { id: "sensors", label: "TELEMETRİ" },
   { id: "rover-map", label: "ROVER_HARİTA" },
   { id: "transmission", label: "İLETİM_ANALİZİ" },
+  { id: "uplink-queue", label: "UPLINK_KUYRUĞU" },
   { id: "dataset", label: "VERİ_SETİ" },
 ];
 
-export default function Dashboard({ wsStatus, readings, anomalies, chartData, stats, onAcknowledge }) {
+export default function Dashboard({ wsStatus, readings, readingsByType, anomalies, chartData, stats, onAcknowledge }) {
   const [active, setActive] = useState("dashboard");
   const sol = stats?.rover?.sol ?? "—";
   const lat = stats?.rover?.lat ?? "—";
@@ -32,6 +34,12 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
   const bwSaved = stats?.bandwidth_saved_percent ?? 0;
   const totalPkt = stats?.total_packets ?? stats?.total_readings ?? 0;
   const timeStr = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const lightOne = stats?.rover?.light_delay_min_one_way;
+  const lightRt = stats?.rover?.light_delay_min_round_trip;
+  const delayLabel =
+    lightOne != null && lightRt != null
+      ? `MARS→DÜNYA IŞIK GECİKMESİ: ${Number(lightOne).toFixed(1)} dk (tek yön) · ${Number(lightRt).toFixed(1)} dk (gidiş-dönüş) — veriler anlık değildir`
+      : "MARS→DÜNYA IŞIK GECİKMESİ: ~3–22 dk (konuma bağlı) — veriler anlık değildir";
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#04060A" }}>
@@ -141,11 +149,14 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
             )}
             {active === "pipeline" && <PipelineAnimation stats={stats} />}
             {active === "anomalies" && <AlertCenter anomalies={anomalies} onAcknowledge={onAcknowledge} />}
-            {active === "sensor-detail" && <SensorDetail readings={readings} anomalies={anomalies} />}
+            {active === "sensor-detail" && (
+              <SensorDetail readings={readings} readingsByType={readingsByType} anomalies={anomalies} />
+            )}
             {active === "rover-map" && <RoverMap stats={stats} />}
             {active === "dataset" && <DatasetInfo />}
             {active === "sensors" && <Telemetry readings={readings} />}
             {active === "transmission" && <TransmissionLog stats={stats} />}
+            {active === "uplink-queue" && <UplinkQueue statsQueue={stats?.uplink_queue} />}
           </div>
 
           <footer className="h-7 shrink-0 flex items-center px-5 gap-8 text-xs font-mono" style={{ background: "#060910", borderTop: "1px solid #0D1520" }}>
@@ -153,7 +164,12 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
             <span style={{ color: "#506070" }}>AZIMUT: <span style={{ color: "#8899AA" }}>182.2</span></span>
             <span style={{ color: "#FF00FF" }}>KRİTİK: <span style={{ color: "#708090" }}>{totalAnomaly > 0 ? "AKTİF" : "YOK"}</span></span>
             <span style={{ color: "#506070" }}>TAMPON: <span style={{ color: "#00FF88" }}>%92</span></span>
-            <span style={{ color: "#506070" }}>GECİKME: <span style={{ color: "#8899AA" }}>4.4ms</span></span>
+            <span style={{ color: "#506070" }}>
+              IŞIK_GECİKMESİ:{" "}
+              <span style={{ color: "#8899AA" }}>
+                {lightOne != null ? `${Number(lightOne).toFixed(1)} dk (1Y)` : "—"}
+              </span>
+            </span>
             <span className="ml-auto font-bold text-glow-green" style={{ color: "#00FF88" }}>SİNYAL_KİLİTLİ</span>
           </footer>
         </main>

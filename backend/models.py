@@ -38,6 +38,35 @@ class SensorReading(Base):
     anomaly_events = relationship(
         "AnomalyEvent", back_populates="reading", cascade="all, delete-orphan"
     )
+    uplink_queue_items = relationship(
+        "UplinkQueueItem", back_populates="reading", cascade="all, delete-orphan"
+    )
+
+
+class UplinkQueueItem(Base):
+    """DSN uplink: yüksek skorlu paketler önce kuyruğa alınır, bant sınırıyla sırayla iletilir."""
+
+    __tablename__ = "uplink_queue"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reading_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sensor_readings.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    uplink_priority = Column(Float, nullable=False)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    queued_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    dsn_station = Column(String(50), nullable=True)
+
+    reading = relationship("SensorReading", back_populates="uplink_queue_items")
 
 
 class AnomalyEvent(Base):

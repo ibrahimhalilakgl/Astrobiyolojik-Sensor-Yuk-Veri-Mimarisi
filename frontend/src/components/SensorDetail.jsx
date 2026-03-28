@@ -30,17 +30,62 @@ function ChartTooltip({ active, payload }) {
   );
 }
 
-export default function SensorDetail({ readings, anomalies }) {
+const CHART_POINTS = 50;
+
+export default function SensorDetail({ readings, readingsByType = {}, anomalies }) {
   const [selected, setSelected] = useState("TEMP");
   const [sensorStats, setSensorStats] = useState(null);
+  const [apiSeries, setApiSeries] = useState([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [apiAnomalies, setApiAnomalies] = useState([]);
 
   useEffect(() => {
     fetch("/api/sensor-data/stats").then(r => r.json()).then(setSensorStats).catch(() => {});
   }, []);
 
-  const sensorReadings = useMemo(() =>
-    readings.filter(r => r.sensor_type === selected).slice(0, 30),
-  [readings, selected]);
+  useEffect(() => {
+    let cancelled = false;
+    setSeriesLoading(true);
+    const q = new URLSearchParams({ sensor_type: selected, limit: "200" });
+    fetch(`/api/sensor-data?${q}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(rows => {
+        if (!cancelled) setApiSeries(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setApiSeries([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSeriesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selected]);
+
+  useEffect(() => {
+    fetch("/api/anomalies?limit=400")
+      .then(r => (r.ok ? r.json() : []))
+      .then(rows => setApiAnomalies(Array.isArray(rows) ? rows : []))
+      .catch(() => setApiAnomalies([]));
+  }, []);
+
+  const sensorReadings = useMemo(() => {
+    const fromApi = apiSeries;
+    const fromTyped = (readingsByType && readingsByType[selected]) || [];
+    const fromMixed = readings.filter(r => r.sensor_type === selected);
+    const byId = new Map();
+    for (const r of fromApi) {
+      if (r?.id) byId.set(String(r.id), r);
+    }
+    for (const r of fromTyped) {
+      if (r?.id) byId.set(String(r.id), r);
+    }
+    for (const r of fromMixed) {
+      if (r?.id) byId.set(String(r.id), r);
+    }
+    return Array.from(byId.values())
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, CHART_POINTS);
+  }, [apiSeries, readings, readingsByType, selected]);
 
   const chartData = useMemo(() =>
     [...sensorReadings].reverse().map(r => ({
@@ -50,12 +95,26 @@ export default function SensorDetail({ readings, anomalies }) {
     })),
   [sensorReadings]);
 
+  const mergedAnomalies = useMemo(() => {
+    const byId = new Map();
+    for (const a of apiAnomalies) {
+      if (a?.id) byId.set(String(a.id), a);
+    }
+    for (const a of anomalies) {
+      if (a?.id) byId.set(String(a.id), a);
+    }
+    return Array.from(byId.values());
+  }, [apiAnomalies, anomalies]);
+
   const sensorAnomalies = useMemo(() =>
-    anomalies.filter(a => {
-      const desc = a.description || "";
-      return desc.includes(selected) || desc.includes(sensorLabel(selected));
-    }).slice(0, 10),
-  [anomalies, selected]);
+    mergedAnomalies
+      .filter(a => {
+        const desc = a.description || "";
+        return desc.includes(selected) || desc.includes(sensorLabel(selected));
+      })
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 15),
+  [mergedAnomalies, selected]);
 
   const currentStats = sensorStats?.find(s => s.sensor_type === selected);
   const info = SENSOR_INFO[selected] || {};
@@ -70,8 +129,13 @@ export default function SensorDetail({ readings, anomalies }) {
   return (
     <div className="space-y-5">
       {/* Sensor selector */}
-      <div className="flex items-center justify-between">
-        <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>SENSÖR_DETAY</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>SENSÖR_DETAY</p>
+          <p className="text-xs mt-1 max-w-xl leading-relaxed" style={{ color: "#607080" }}>
+            Grafik zaman ekseni, sayfaya girdiğiniz ana bağlı değildir: uygulama açılırken veritabanından son kayıtlar yüklenir; her sensör tipi için ayrıca son {CHART_POINTS} okuma tutulur ve WebSocket ile güncellenir.
+          </p>
+        </div>
         <div className="flex gap-1">
           {Object.keys(SENSOR_INFO).map(s => (
             <button key={s} onClick={() => setSelected(s)}
@@ -120,10 +184,17 @@ export default function SensorDetail({ readings, anomalies }) {
 
       {/* Time series chart */}
       <div className="n-hud p-5">
-        <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#607080" }}>
-          {selected}_ZAMAN_SERİSİ
-        </p>
-        {chartData.length === 0 ? (
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>
+            {selected}_ZAMAN_SERİSİ
+          </p>
+          <span className="text-[10px] uppercase tracking-widest" style={{ color: "#506070" }}>
+            SON_{CHART_POINTS}_NOKTA · DB + sensör_tamponu + WS
+          </span>
+        </div>
+        {chartData.length === 0 && seriesLoading ? (
+          <div className="flex items-center justify-center h-48 text-sm" style={{ color: "#506070" }}>SERİ_YÜKLENİYOR...</div>
+        ) : chartData.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-sm" style={{ color: "#506070" }}>VERİ_BEKLENİYOR...</div>
         ) : (
           <ResponsiveContainer width="100%" height={280}>

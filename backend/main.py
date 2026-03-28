@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import async_session, engine, Base
 from simulator import generate_sensor_readings, get_rover_state
 from edge_processor import EdgeProcessor
-from routers import sensor_data, anomalies, websocket as ws_router
+from routers import sensor_data, anomalies, websocket as ws_router, uplink_queue
 from routers.websocket import broadcast
 import crud
 
@@ -38,16 +38,43 @@ async def stats_broadcast_loop() -> None:
         await asyncio.sleep(5)
         async with async_session() as db:
             overview = await crud.get_overview_stats(db)
+            qsnap = await crud.get_uplink_queue_snapshot(db)
 
         edge_stats = processor.get_stats()
         rover = get_rover_state()
-
+        tr = overview["total_readings"]
+        tx = overview.get("transmitted_readings", 0)
+        # Paket / iletim sayıları: yalnızca DB (edge belleği süreç ömrüyle sınırlı; yenilemede düşmez)
         await broadcast(
             {
                 "type": "stats_update",
-                "data": {**overview, **edge_stats, "rover": rover},
+                "data": {
+                    **overview,
+                    **edge_stats,
+                    "total_packets": tr,
+                    "transmitted_packets": tx,
+                    "compression_ratio": round(tx / tr, 4) if tr > 0 else 0.0,
+                    "bandwidth_saved_percent": overview["bandwidth_saved_percent"],
+                    "total_bytes_saved": overview["total_bytes_saved"],
+                    "rover": rover,
+                    "uplink_queue": qsnap,
+                },
             }
         )
+
+
+async def uplink_drain_loop() -> None:
+    while True:
+        await asyncio.sleep(1.5)
+        async with async_session() as db:
+            sent_payloads = await crud.drain_uplink_queue(db, processor, max_items=6)
+            await db.commit()
+        for row in sent_payloads:
+            await broadcast({"type": "sensor_reading", "data": row})
+        if sent_payloads:
+            async with async_session() as db:
+                snap = await crud.get_uplink_queue_snapshot(db)
+            await broadcast({"type": "uplink_queue_update", "data": snap})
 
 
 @asynccontextmanager
@@ -56,9 +83,11 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     sim_task = asyncio.create_task(simulation_loop())
     stats_task = asyncio.create_task(stats_broadcast_loop())
+    uplink_task = asyncio.create_task(uplink_drain_loop())
     yield
     sim_task.cancel()
     stats_task.cancel()
+    uplink_task.cancel()
 
 
 app = FastAPI(
@@ -78,6 +107,7 @@ app.add_middleware(
 
 app.include_router(sensor_data.router)
 app.include_router(anomalies.router)
+app.include_router(uplink_queue.router)
 app.include_router(ws_router.router)
 
 
