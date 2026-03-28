@@ -1,4 +1,5 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from "recharts";
+import { formatNumber } from "../utils/formatters";
 
 function ChartTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -6,7 +7,7 @@ function ChartTooltip({ active, payload }) {
   return (
     <div className="p-3" style={{ background: "#080C14", border: "1px solid #1A2535" }}>
       <p className="text-xs" style={{ color: "#8899AA" }}>{d.time}</p>
-      <p className="font-bold text-lg mt-0.5" style={{ color: "#00F2FF", textShadow: "0 0 10px #00F2FF40" }}>{d.score}</p>
+      <p className="font-bold text-lg mt-0.5" style={{ color: "#00F2FF", textShadow: "0 0 10px #00F2FF40" }}>{formatNumber(d.score)}</p>
       <p className="text-xs" style={{ color: "#708090" }}>SENSÖR: <span style={{ color: "#BCC8D4" }}>{d.sensor}</span></p>
     </div>
   );

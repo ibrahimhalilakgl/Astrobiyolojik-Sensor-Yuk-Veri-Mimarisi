@@ -91,12 +91,22 @@ function mergeMixedReadings(prev, dbRows) {
     .slice(0, MAX_READINGS);
 }
 
+function safeAnomalyScore(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(100, Math.max(0, n));
+}
+
 function chartPointFromReading(r) {
-  const t = new Date(r.created_at).toLocaleTimeString("tr-TR");
+  const ts = r?.created_at ? new Date(r.created_at) : null;
+  const t =
+    ts && !Number.isNaN(ts.getTime())
+      ? ts.toLocaleTimeString("tr-TR")
+      : "—";
   const sensor = r.sensor_type ?? "?";
   return {
     time: `${t} · ${sensor}`,
-    score: r.anomaly_score,
+    score: safeAnomalyScore(r?.anomaly_score),
     sensor,
   };
 }
@@ -104,7 +114,13 @@ function chartPointFromReading(r) {
 /** DB bootstrap sonrası grafik boş kalmasın (yalnızca WS ile doldurulunca yenilemede VERİ_BEKLENİYOR oluşuyordu). */
 function rowsToChartPoints(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
-  const sorted = [...rows].sort(
+  const valid = rows.filter((r) => {
+    if (!r?.created_at) return false;
+    const d = new Date(r.created_at);
+    return !Number.isNaN(d.getTime());
+  });
+  if (valid.length === 0) return [];
+  const sorted = [...valid].sort(
     (a, b) => new Date(a.created_at) - new Date(b.created_at)
   );
   return sorted.slice(-MAX_CHART_POINTS).map((r) => chartPointFromReading(r));

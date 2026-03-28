@@ -265,11 +265,16 @@ function LiveStats({ sim, stats }) {
   }, [sim, hasLive]);
 
   const total = hasLive ? (stats.total_packets ?? 0) : demo.total;
-  const tx = hasLive ? (stats.transmitted_packets ?? 0) : demo.tx;
+  const txRaw = hasLive ? (stats.transmitted_packets ?? 0) : demo.tx;
+  const tx = hasLive ? Math.min(txRaw, Math.max(0, total)) : txRaw;
   const dropped = hasLive ? Math.max(0, total - tx) : demo.dropped;
   const filtPct = total > 0 ? ((dropped / total) * 100).toFixed(1) : "0";
-  const dSave = hasLive ? Number(stats.payload_deflate_savings_percent ?? 0) : 0;
-  const bSave = hasLive ? Number(stats.bandwidth_saved_percent ?? 0) : 0;
+  const dSave = hasLive
+    ? Math.min(100, Math.max(0, Number(stats.payload_deflate_savings_percent) || 0))
+    : 0;
+  const bSave = hasLive
+    ? Math.min(100, Math.max(0, Number(stats.bandwidth_saved_percent) || 0))
+    : 0;
   const useDeflate = hasLive && dSave > 0;
 
   const rows = [

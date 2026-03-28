@@ -32,20 +32,32 @@ export default function EarthCloud({ modelUpdates, rlRewardSeries, stats }) {
 
   const merged = modelUpdates?.length ? modelUpdates : rows;
   const timeline = [...merged]
+    .filter(
+      (m) =>
+        m.threshold_suggestion != null &&
+        Number.isFinite(Number(m.threshold_suggestion))
+    )
     .slice(0, 24)
     .reverse()
     .map((m, i) => ({
       i,
       round: m.federated_round ?? m.model_version,
-      thr: m.threshold_suggestion,
+      thr: Number(m.threshold_suggestion),
       label: String(m.federated_round ?? i),
     }));
 
-  const rewardChart = (rlRewardSeries || []).map((p, i) => ({
-    i,
-    reward: p.reward,
-    t: new Date(p.t).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-  }));
+  const rewardChart = (rlRewardSeries || [])
+    .filter((p) => p != null && Number.isFinite(Number(p.reward)))
+    .map((p, i) => ({
+      i,
+      reward: Number(p.reward),
+      t: (() => {
+        const d = p.t ? new Date(p.t) : null;
+        return d && !Number.isNaN(d.getTime())
+          ? d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+          : "—";
+      })(),
+    }));
 
   const lastRound = merged[0]?.federated_round ?? stats?.rl_stats?.steps ?? "—";
   const batchesLeft = ecs?.batches_until_cloud_sync;
@@ -200,17 +212,23 @@ export default function EarthCloud({ modelUpdates, rlRewardSeries, stats }) {
             Eşik önerisi · federatif tur
           </p>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#0D1520" strokeDasharray="3 3" />
-                <XAxis dataKey="round" tick={{ fill: "#506070", fontSize: 10 }} />
-                <YAxis tick={{ fill: "#506070", fontSize: 10 }} domain={[35, 75]} />
-                <Tooltip
-                  contentStyle={{ background: "#080C14", border: "1px solid #0D1520", color: "#99AAB8" }}
-                />
-                <Bar dataKey="thr" fill="#FF00FF" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {timeline.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs" style={{ color: "#506070" }}>
+                Eşik önerisi verisi yok — bulut senkronu sonrası dolar.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#0D1520" strokeDasharray="3 3" />
+                  <XAxis dataKey="round" tick={{ fill: "#506070", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "#506070", fontSize: 10 }} domain={[35, 75]} />
+                  <Tooltip
+                    contentStyle={{ background: "#080C14", border: "1px solid #0D1520", color: "#99AAB8" }}
+                  />
+                  <Bar dataKey="thr" fill="#FF00FF" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
         <div className="n-panel p-4 rounded-lg border" style={{ borderColor: "#0D1520", minHeight: 280 }}>
@@ -218,17 +236,23 @@ export default function EarthCloud({ modelUpdates, rlRewardSeries, stats }) {
             Pekiştirmeli öğrenme ödül geçmişi
           </p>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rewardChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#0D1520" strokeDasharray="3 3" />
-                <XAxis dataKey="t" tick={{ fill: "#506070", fontSize: 9 }} />
-                <YAxis tick={{ fill: "#506070", fontSize: 10 }} />
-                <Tooltip
-                  contentStyle={{ background: "#080C14", border: "1px solid #0D1520", color: "#99AAB8" }}
-                />
-                <Line type="monotone" dataKey="reward" stroke="#00FF88" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            {rewardChart.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs" style={{ color: "#506070" }}>
+                Ödül serisi yok — toplam ödül her değiştiğinde nokta eklenir.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={rewardChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#0D1520" strokeDasharray="3 3" />
+                  <XAxis dataKey="t" tick={{ fill: "#506070", fontSize: 9 }} />
+                  <YAxis tick={{ fill: "#506070", fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ background: "#080C14", border: "1px solid #0D1520", color: "#99AAB8" }}
+                  />
+                  <Line type="monotone" dataKey="reward" stroke="#00FF88" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

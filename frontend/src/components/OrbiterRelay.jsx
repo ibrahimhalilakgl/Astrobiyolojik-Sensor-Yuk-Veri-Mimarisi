@@ -32,15 +32,22 @@ export default function OrbiterRelay({ orbiterStats, stats }) {
 
   const chartData = [...logs]
     .reverse()
-    .map((row, i) => ({
-      i,
-      ms: row.relay_latency_ms,
-      t: new Date(row.created_at).toLocaleTimeString("tr-TR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    }));
+    .map((row, i) => {
+      const ms = Number(row.relay_latency_ms);
+      const ts = row.created_at ? new Date(row.created_at) : null;
+      return {
+        i,
+        ms: Number.isFinite(ms) ? ms : 0,
+        t:
+          ts && !Number.isNaN(ts.getTime())
+            ? ts.toLocaleTimeString("tr-TR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })
+            : "—",
+      };
+    });
 
   const dropPct = o?.drop_rate != null ? (o.drop_rate * 100).toFixed(1) : "—";
   const winRem = o?.window_remaining_sec;

@@ -22,13 +22,13 @@ export default function TransmissionLog({ stats }) {
   if (!stats) return <div className="n-hud h-96 animate-pulse" />;
 
   const total = stats.total_packets ?? stats.total_readings ?? 0;
-  const tx = stats.transmitted_packets ?? 0;
-  const dropped = total - tx;
-  const savedPct = stats.bandwidth_saved_percent ?? 0;
+  const tx = Math.min(stats.transmitted_packets ?? 0, Math.max(0, total));
+  const dropped = Math.max(0, total - tx);
+  const savedPct = Math.min(100, Math.max(0, Number(stats.bandwidth_saved_percent) || 0));
   const bytesSaved = stats.total_bytes_saved ?? 0;
-  const ratio = stats.compression_ratio ?? 0;
-  const deflateRatio = stats.payload_deflate_ratio ?? 0;
-  const deflateSavings = stats.payload_deflate_savings_percent ?? 0;
+  const ratio = Math.min(1, Math.max(0, Number(stats.compression_ratio) || 0));
+  const deflateRatio = Math.min(1, Math.max(0, Number(stats.payload_deflate_ratio) || 0));
+  const deflateSavings = Math.min(100, Math.max(0, Number(stats.payload_deflate_savings_percent) || 0));
 
   const dsnData = [
     { name: "Goldstone DSS-14", konum: "California, ABD", bant: "X-Band", hiz: "~3 kbps", durum: true },
@@ -98,21 +98,29 @@ export default function TransmissionLog({ stats }) {
         {/* Pie */}
         <div className="n-hud p-5">
           <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#607080" }}>PAKET_DAĞILIMI</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                {pieData.map((e, i) => <Cell key={i} fill={e.fill} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center gap-6 mt-2">
-            <span className="flex items-center gap-2 text-xs" style={{ color: "#708090" }}>
-              <span className="w-3 h-3" style={{ background: "#FF00FF" }} /> İletilen ({tx})
-            </span>
-            <span className="flex items-center gap-2 text-xs" style={{ color: "#708090" }}>
-              <span className="w-3 h-3" style={{ background: "#1A2535" }} /> Filtrelenen ({dropped})
-            </span>
-          </div>
+          {total === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[180px] text-sm" style={{ color: "#506070" }}>
+              Henüz paket yok — simülasyon başladıkça dolar.
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                    {pieData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-6 mt-2">
+                <span className="flex items-center gap-2 text-xs" style={{ color: "#708090" }}>
+                  <span className="w-3 h-3" style={{ background: "#FF00FF" }} /> İletilen ({tx})
+                </span>
+                <span className="flex items-center gap-2 text-xs" style={{ color: "#708090" }}>
+                  <span className="w-3 h-3" style={{ background: "#1A2535" }} /> Filtrelenen ({dropped})
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* DSN Stations */}

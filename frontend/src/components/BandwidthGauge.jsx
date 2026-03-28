@@ -20,10 +20,13 @@ function CircularGauge({ percent }) {
 
 function ChartTip({ active, payload }) {
   if (!active || !payload?.length) return null;
+  const v = payload[0].value;
+  const n = Number(v);
+  const shown = Number.isFinite(n) ? n.toLocaleString("tr-TR") : "—";
   return (
     <div className="p-2 text-xs" style={{ background: "#080C14", border: "1px solid #1A2535" }}>
       <span style={{ color: "#99AAB8" }}>{payload[0].payload.name}: </span>
-      <span className="font-bold" style={{ color: "#00F2FF" }}>{payload[0].value.toLocaleString("tr-TR")}</span>
+      <span className="font-bold" style={{ color: "#00F2FF" }}>{shown}</span>
     </div>
   );
 }
@@ -31,8 +34,8 @@ function ChartTip({ active, payload }) {
 export default function BandwidthGauge({ stats }) {
   if (!stats) return <div className="n-hud h-72 animate-pulse" />;
   const total = stats.total_packets ?? stats.total_readings ?? 0;
-  const tx = stats.transmitted_packets ?? 0;
-  const savedPct = stats.bandwidth_saved_percent ?? 0;
+  const tx = Math.min(stats.transmitted_packets ?? 0, Math.max(0, total));
+  const savedPct = Math.min(100, Math.max(0, Number(stats.bandwidth_saved_percent) || 0));
   const bytesSaved = stats.total_bytes_saved ?? 0;
   const barData = [
     { name: "HAM_VERİ", value: total, color: "#1A2535" },
@@ -65,7 +68,7 @@ export default function BandwidthGauge({ stats }) {
           <div className="h-px" style={{ background: "#0D1520" }} />
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "#607080" }}>FİLTRELENEN</p>
-            <p className="text-xl font-bold" style={{ color: "#99AAB8" }}>{(total - tx).toLocaleString("tr-TR")} <span className="text-xs" style={{ color: "#607080" }}>PAKET</span></p>
+            <p className="text-xl font-bold" style={{ color: "#99AAB8" }}>{Math.max(0, total - tx).toLocaleString("tr-TR")} <span className="text-xs" style={{ color: "#607080" }}>PAKET</span></p>
           </div>
         </div>
       </div>
