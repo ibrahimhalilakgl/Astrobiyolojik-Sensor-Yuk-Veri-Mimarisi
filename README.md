@@ -12,9 +12,10 @@ Bu proje, Mars rover'ından gelen **gerçek NASA telemetri verisini** (SMAP/MSL 
 2. **Edge tamponlama** — Ring buffer ile dairesel veri depolama (500 okuma/kanal)
 3. **Anomali tespiti** — Z-score + LSTM smoothed error hibrit yöntemiyle
 4. **Bilimsel önceliklendirme** — Organik molekül (10/10) → Sıcaklık ekstremi (4/10)
-5. **Bant genişliği sıkıştırma** — Sadece anomali verileri iletme (%85+ tasarruf)
+5. **Bant optimizasyonu** — Skor eşiğine göre paket filtreleme + uplink yükü için **delta kodlama + zlib (DEFLATE)** ile gerçek ikili sıkıştırma (`compressor.py`)
 6. **DSN iletimi** — Deep Space Network pencere simülasyonu
 7. **Ground station dashboard** — Gerçek zamanlı WebSocket ile canlı gösterim
+8. **VERİ_AKIŞI ekranı** — 8 adımlı uçtan uca pipeline animasyonu (ayarlanabilir hız, ilerleme çubuğu, canlı `stats_update` metrikleri)
 
 süreçlerini uçtan uca simüle eder.
 
@@ -107,11 +108,12 @@ Recall:           %80.0
 │  │ Replay   │    │ (500/ch)│    │ Z+LSTM   │    │ (1-10)   │  │
 │  └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
 │                                        │                        │
-│                                   ┌────┴────┐                   │
-│                                   │ Filtre  │                   │
-│                                   │ <50:DROP│                   │
-│                                   │ ≥50:TX  │                   │
-│                                   └────┬────┘                   │
+│                              ┌─────────┴─────────┐              │
+│                              │ Filtre + sıkıştırma│              │
+│                              │ skor<50: DROP     │              │
+│                              │ skor≥50: TX       │              │
+│                              │ Delta → zlib DEFL │              │
+│                              └─────────┬─────────┘              │
 └────────────────────────────────────────┼────────────────────────┘
                                          │ DSN İletimi
                                          ▼
@@ -190,15 +192,31 @@ Tespit edilen anomaliler bilimsel önemlerine göre sınıflandırılır:
 | Basınç Anomalisi | PRESS (P-10, P-14) | 4/10 |
 | Sıcaklık Ekstremi | TEMP (T-1, T-2) | 4/10 |
 
-### Adım 6: Bant Genişliği Optimizasyonu
+### Adım 6: Bant Genişliği Optimizasyonu + İkili Sıkıştırma (`compressor.py`)
 
-Sadece skor ≥ 50 olan veriler "iletilir" olarak işaretlenir. Bu, DSN'nin kısıtlı bant genişliğini simüle eder:
+**Filtreleme:** Skor ≥ 50 olan okumalar `is_transmitted=True` ile işaretlenir; düşük skorlular iletilmez. Paket başına **256 byte** varsayımıyla filtre tasarrufu hesaplanır:
 
 ```
-tasarruf = (1 - iletilen_paket / toplam_paket) × 100
+tasarruf_filtre = (1 - iletilen_paket / toplam_paket) × 100
 ```
 
-Tipik tasarruf oranı: **%85-92**
+**Sıkıştırma (gerçek codec):** Her batch’te yalnızca iletilecek kayıtlar üzerinde:
+
+1. `raw_value` ve `anomaly_score` çiftleri **little-endian float64** olarak ardışık paketlenir.
+2. **Delta kodlama:** İlk değer aynen kalır; sonraki örnekler bir öncekine göre fark olarak yazılır (düz telemetride entropi azalır).
+3. **zlib.compress(level=6)** — DEFLATE tabanlı sıkıştırma (standart kütüphane; uzay telemetrisinde kullanılan Rice/Huffman tarzı kayıpsız kodlamanın karşılığı olarak düşünülebilir).
+
+`edge_processor.process_batch` bu yükü üretir; `get_stats()` ve WebSocket `stats_update` ile birlikte şu alanlar yayınlanır:
+
+| Alan | Anlamı |
+|------|--------|
+| `payload_serialized_bytes` | Uplink için paketlenmiş ham byte (kümülatif) |
+| `payload_deflated_bytes` | zlib sonrası byte (kümülatif) |
+| `payload_deflate_ratio` | sıkıştırılmış / ham (0–1) |
+| `payload_deflate_savings_percent` | (1 − oran) × 100 |
+| `last_batch_payload_bytes` / `last_batch_deflated_bytes` | Son batch özet |
+
+> Veritabanındaki `transmission_log.compression_ratio` sütunu **paket iletim oranını** (iletilen / toplam) ifade eder; DEFLATE oranı yalnızca API/WebSocket istatistiklerindedir.
 
 ### Adım 7: Dashboard Gösterimi
 
@@ -207,7 +225,7 @@ Tipik tasarruf oranı: **%85-92**
 ```json
 {"type": "sensor_reading", "data": {...}}   // Her okuma
 {"type": "anomaly_alert", "data": {...}}    // Anomali tespiti
-{"type": "stats_update", "data": {...}}     // 5 saniyede bir özet
+{"type": "stats_update", "data": {...}}     // ~5 saniyede bir özet (edge + DB + rover + payload_deflate_* )
 ```
 
 ---
@@ -251,10 +269,10 @@ Tipik tasarruf oranı: **%85-92**
 | Sayfa | İçerik |
 |-------|--------|
 | GÖSTERGE_PANELİ | Metrik kartlar, anomali grafiği, bant analizi, canlı tablo |
-| VERİ_AKIŞI | 7 adımlı pipeline animasyonu — sensörden Dünya'ya tüm adımlar |
+| VERİ_AKIŞI | 8 adım: toplama → tampon → LSTM+z-score → karar → öncelik → delta+DEFLATE+filtre → DSN → yer istasyonu; canvas akışı, **YAVAŞ/NORMAL/HIZLI** hız, ilerleme çubuğu, aktif adım takibi, canlı paket/DEFLATE metrikleri |
 | ANOMALİ_TESPİT | Alarm merkezi — severity filtre, onaylama, bilimsel öncelik |
 | TELEMETRİ | Canlı sensör veri akışı tablosu |
-| İLETİM_ANALİZİ | Bant genişliği tasarrufu, sıkıştırma oranı, DSN metrikleri |
+| İLETİM_ANALİZİ | Bant tasarrufu, paket iletim oranı, **delta+DEFLATE** oranı ve tasarruf yüzdesi, DSN özeti |
 
 ---
 
@@ -295,7 +313,7 @@ Tipik tasarruf oranı: **%85-92**
 | total_packets | INTEGER | Toplam paket |
 | transmitted_packets | INTEGER | İletilen paket |
 | bytes_saved | BIGINT | Tasarruf edilen byte |
-| compression_ratio | FLOAT | İletim oranı |
+| compression_ratio | FLOAT | Paket iletim oranı (iletilen / toplam); DEFLATE oranı değildir |
 | transmission_window | VARCHAR(50) | DSN istasyonu |
 | created_at | TIMESTAMPTZ | İletim zamanı |
 
@@ -349,7 +367,8 @@ mars-rover-dashboard/
 │   ├── schemas.py              # Pydantic request/response
 │   ├── crud.py                 # Veritabanı CRUD operasyonları
 │   ├── simulator.py            # NASA MSL veri replay motoru
-│   ├── edge_processor.py       # Hibrit anomali tespit + karar
+│   ├── edge_processor.py       # Hibrit anomali tespit + karar + batch sıkıştırma metrikleri
+│   ├── compressor.py           # Delta kodlama + zlib DEFLATE (uplink yükü)
 │   ├── requirements.txt        # Python bağımlılıkları
 │   ├── alembic.ini             # Migration config
 │   ├── alembic/                # Migration dosyaları
@@ -387,8 +406,15 @@ mars-rover-dashboard/
 │   ├── tailwind.config.js
 │   └── package.json
 ├── docker-compose.yml
+├── deploy_fast.py              # Paramiko: dist + backend yükleme, systemd/nginx (kimlik bilgilerini güvenli tutun)
 └── README.md
 ```
+
+### Üretim sunucusuna yükleme
+
+1. Yerelde `frontend` için `npm run build` çalıştırın (`dist/` oluşmalı).
+2. `deploy_fast.py` içindeki sunucu adresi ve SSH bilgilerini güncelleyin; mümkünse parolayı betiğe gömme yerine ortam değişkeni veya anahtar dosyası kullanın.
+3. `python deploy_fast.py` — backend dosyaları ( `compressor.py` dahil) ve `frontend/dist` uzak `/opt/nirvana` altına kopyalanır, `nirvana` systemd servisi ve Nginx yeniden başlatılır.
 
 ---
 

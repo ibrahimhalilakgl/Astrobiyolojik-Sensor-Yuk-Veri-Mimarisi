@@ -27,6 +27,8 @@ export default function TransmissionLog({ stats }) {
   const savedPct = stats.bandwidth_saved_percent ?? 0;
   const bytesSaved = stats.total_bytes_saved ?? 0;
   const ratio = stats.compression_ratio ?? 0;
+  const deflateRatio = stats.payload_deflate_ratio ?? 0;
+  const deflateSavings = stats.payload_deflate_savings_percent ?? 0;
 
   const dsnData = [
     { name: "Goldstone DSS-14", konum: "California, ABD", bant: "X-Band", hiz: "~3 kbps", durum: true },
@@ -71,8 +73,16 @@ export default function TransmissionLog({ stats }) {
           </div>
           <div className="mt-4 pt-3 space-y-2" style={{ borderTop: "1px solid #0D1520" }}>
             <div className="flex justify-between px-2">
-              <span className="text-xs" style={{ color: "#506070" }}>Sıkıştırma Oranı</span>
+              <span className="text-xs" style={{ color: "#506070" }}>İletim Oranı (paket)</span>
               <span className="text-sm font-bold" style={{ color: "#8899AA" }}>{formatNumber(ratio, 4)}</span>
+            </div>
+            <div className="flex justify-between px-2">
+              <span className="text-xs" style={{ color: "#506070" }}>Delta+DEFLATE (sıkıştırılmış / ham)</span>
+              <span className="text-sm font-bold" style={{ color: "#00FF88" }}>{deflateRatio > 0 ? formatNumber(deflateRatio, 4) : "—"}</span>
+            </div>
+            <div className="flex justify-between px-2">
+              <span className="text-xs" style={{ color: "#506070" }}>Yük Sıkıştırma Tasarrufu</span>
+              <span className="text-sm font-bold" style={{ color: "#00F2FF" }}>{deflateSavings > 0 ? `%${formatNumber(deflateSavings, 1)}` : "—"}</span>
             </div>
             <div className="flex justify-between px-2">
               <span className="text-xs" style={{ color: "#506070" }}>Paket Başı Boyut</span>

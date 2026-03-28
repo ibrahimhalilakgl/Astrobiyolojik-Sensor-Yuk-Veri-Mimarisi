@@ -65,37 +65,43 @@ async def get_sensor_reading_by_id(
 
 
 async def get_sensor_stats(db: AsyncSession) -> List[dict]:
-    result = await db.execute(
-        select(
-            SensorReading.sensor_type,
-            func.count(SensorReading.id).label("count"),
-            func.avg(SensorReading.raw_value).label("mean"),
-            func.stddev(SensorReading.raw_value).label("std"),
-            func.avg(
-                func.cast(SensorReading.is_anomaly, func.INTEGER if False else None)
-            ).label("anomaly_rate"),
-        ).group_by(SensorReading.sensor_type)
+    type_q = await db.execute(
+        select(SensorReading.sensor_type).group_by(SensorReading.sensor_type)
     )
-    rows = result.all()
+    sensor_types = [r[0] for r in type_q.all()]
+
     stats = []
-    for row in rows:
-        total = row.count or 1
-        anomaly_q = await db.execute(
+    for st in sensor_types:
+        count_q = await db.execute(
+            select(func.count(SensorReading.id)).where(SensorReading.sensor_type == st)
+        )
+        total = count_q.scalar() or 1
+
+        mean_q = await db.execute(
+            select(func.avg(SensorReading.raw_value)).where(SensorReading.sensor_type == st)
+        )
+        mean_val = mean_q.scalar() or 0
+
+        std_q = await db.execute(
+            select(func.stddev(SensorReading.raw_value)).where(SensorReading.sensor_type == st)
+        )
+        std_val = std_q.scalar() or 0
+
+        anom_q = await db.execute(
             select(func.count(SensorReading.id)).where(
-                SensorReading.sensor_type == row.sensor_type,
+                SensorReading.sensor_type == st,
                 SensorReading.is_anomaly == True,  # noqa: E712
             )
         )
-        anomaly_count = anomaly_q.scalar() or 0
-        stats.append(
-            {
-                "sensor_type": row.sensor_type,
-                "count": row.count,
-                "mean": round(float(row.mean or 0), 4),
-                "std": round(float(row.std or 0), 4),
-                "anomaly_rate": round(anomaly_count / total, 4),
-            }
-        )
+        anom_count = anom_q.scalar() or 0
+
+        stats.append({
+            "sensor_type": st,
+            "count": total,
+            "mean": round(float(mean_val), 4),
+            "std": round(float(std_val), 4),
+            "anomaly_rate": round(anom_count / total, 4),
+        })
     return stats
 
 

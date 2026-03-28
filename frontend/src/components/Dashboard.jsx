@@ -33,10 +33,6 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
   const totalPkt = stats?.total_packets ?? stats?.total_readings ?? 0;
   const timeStr = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-  const handleScan = async () => {
-    try { await fetch("/api/sensor-data/simulate", { method: "POST" }); } catch {}
-  };
-
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#04060A" }}>
 
@@ -82,9 +78,6 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
             <p className="text-xs ml-4 uppercase tracking-widest" style={{ color: "#506070" }}>SEKTÖR: JEZERO KRATERİ</p>
           </div>
 
-          <div className="px-4 pb-4">
-            <button onClick={handleScan} className="w-full n-btn-primary text-xs py-2.5">TARAMA_BAŞLAT</button>
-          </div>
           <div className="n-divider" />
 
           <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
@@ -146,7 +139,7 @@ export default function Dashboard({ wsStatus, readings, anomalies, chartData, st
                 <LiveStreamTable readings={readings} />
               </>
             )}
-            {active === "pipeline" && <PipelineAnimation />}
+            {active === "pipeline" && <PipelineAnimation stats={stats} />}
             {active === "anomalies" && <AlertCenter anomalies={anomalies} onAcknowledge={onAcknowledge} />}
             {active === "sensor-detail" && <SensorDetail readings={readings} anomalies={anomalies} />}
             {active === "rover-map" && <RoverMap stats={stats} />}

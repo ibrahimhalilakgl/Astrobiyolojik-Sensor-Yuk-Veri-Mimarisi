@@ -1,283 +1,482 @@
 import { useState, useEffect, useRef } from "react";
 
 const STEPS = [
-  { id: "collect", title: "VERİ_TOPLAMA", sub: "SENSÖR OKUMA", color: "#00F2FF", num: "01",
-    desc: "Mars rover üzerindeki 8 sensör (PIXL, SHERLOC, Hazcam, REMS) ham veri üretir. Her sensör 2 saniyede bir okuma yapar.",
-    detail: "Sensörler: TEMP, CH₄, O₂, CO₂, MOIST, SPEC, UV, PRESS — CCSDS paket formatında.",
-    metric: { l: "ÜRETİM HIZI", v: "~8 paket / 2s" } },
-  { id: "buffer", title: "TAMPONLAMA", sub: "EDGE BUFFER", color: "#7000FF", num: "02",
-    desc: "Ham veriler rover'ın SSR (Solid State Recorder) birimine yazılır. Ring buffer ile en güncel veriler tutulur.",
-    detail: "Dairesel buffer: 500 okuma/sensör. Kritik veriler anında işlenir.",
-    metric: { l: "BUFFER", v: "500 okuma" } },
-  { id: "anomaly", title: "ANOMALİ_TESPİT", sub: "Z-SCORE ANALİZ", color: "#FFAA00", num: "03",
-    desc: "Her sensör değeri için z-score yöntemiyle istatistiksel anomali skoru hesaplanır.",
-    detail: "anomaly_score = min(100, |z-score| × 25). <30 Normal, 30-60 Şüpheli, ≥60 Anomali.",
-    metric: { l: "ANOMALİ ORANI", v: "~%12" } },
-  { id: "priority", title: "ÖNCELİKLENDİRME", sub: "BİLİMSEL SINIF", color: "#FF00FF", num: "04",
-    desc: "Anomaliler bilimsel önemlerine göre sınıflandırılır. Organik molekül imzası en yüksek önceliği alır.",
-    detail: "Organik Molekül→10, Metan→8, Spektral→7, Nem→6, Sıcaklık→4",
-    metric: { l: "ÖNCELİK", v: "1-10 skala" } },
-  { id: "compress", title: "SIKIŞTIRMA", sub: "BANT OPTİMİZASYON", color: "#00FF88", num: "05",
-    desc: "Normal veriler filtrelenir. Sadece anomali skoru yüksek veriler iletilir. %85+ tasarruf.",
-    detail: "<30: Filtrelenir. 30-60: Buffer bekler. ≥60: İletim kuyruğuna alınır.",
-    metric: { l: "TASARRUF", v: "~%85+" } },
-  { id: "transmit", title: "DSN_İLETİM", sub: "DEEP SPACE NETWORK", color: "#00F2FF", num: "06",
-    desc: "Veriler Mars-Dünya arası NASA DSN üzerinden iletilir. Tek yön gecikme 4-24 dakika.",
-    detail: "X-band ~3 kbps, UHF orbiter ~2 Mbps. Günlük ~1 Gbit kapasite.",
-    metric: { l: "GECİKME", v: "4-24 dk" } },
-  { id: "ground", title: "YER_İSTASYONU", sub: "REASSEMBLY", color: "#FF00FF", num: "07",
-    desc: "Paketler yer istasyonunda birleştirilir, dekode edilir ve dashboard'da gösterilir.",
-    detail: "Reassembly → PostgreSQL → WebSocket → Dashboard → Analiz.",
-    metric: { l: "GÖSTERIM", v: "GERÇEK ZAMANLI" } },
+  { id: "collect", num: "01", title: "VERİ TOPLAMA", sub: "SENSÖR OKUMA",
+    color: "#00F2FF", icon: "📡",
+    desc: "Mars rover üzerindeki sensörler (PIXL, SHERLOC, Hazcam, REMS, SAM) sürekli ham veri üretir. Her sensör belirli aralıklarla okuma yapar — sıcaklık, basınç, metan, spektral yoğunluk gibi ölçümler.",
+    detail: "Kullanılan kanallar: T-1 (Sıcaklık), M-6 (Metan), C-1/C-2 (Spektrometre), D-14 (UV), D-15 (O₂), D-16 (CO₂), P-10 (Basınç), F-7 (FTIR). Veriler normalize edilmiş [-1, 1] aralığında, CCSDS paket formatında üretilir.",
+    metrics: [
+      { l: "KANAL SAYISI", v: "12 MSL kanalı" },
+      { l: "OKUMA HIZI", v: "Her 2 saniyede 12 paket" },
+      { l: "VERİ FORMATI", v: "NumPy (.npy) → JSON" },
+    ]},
+  { id: "buffer", num: "02", title: "TAMPONLAMA", sub: "EDGE BUFFER (SSR)",
+    color: "#7000FF", icon: "💾",
+    desc: "Toplanan ham veriler rover'ın Solid State Recorder (SSR) birimine yazılır. Ring buffer (dairesel tampon) yapısıyla en güncel veriler tutulur. Eski veriler otomatik olarak üzerine yazılır.",
+    detail: "Her sensör tipi için ayrı buffer — 500 okuma kapasiteli dairesel yapı. Kritik veriler (yüksek anomali skoru) anında bir sonraki adıma geçer, düşük öncelikli veriler sırada bekler.",
+    metrics: [
+      { l: "BUFFER KAPASİTESİ", v: "500 okuma / sensör" },
+      { l: "YAPI", v: "Dairesel (Ring Buffer)" },
+      { l: "DEPOLAMA", v: "SSR — Solid State Recorder" },
+    ]},
+  { id: "anomaly", num: "03", title: "ANOMALİ TESPİTİ", sub: "LSTM + Z-SCORE HİBRİT",
+    color: "#FFAA00", icon: "🔬",
+    desc: "Her sensör değeri iki yöntemle analiz edilir: (1) LSTM sinir ağının tahmin hatası (smoothed error), (2) İstatistiksel z-score sapması. Her iki yöntemin sonucu birleştirilerek anomali skoru hesaplanır.",
+    detail: "Birincil yöntem: LSTM modeli geçmiş veriyi öğrenerek gelecek değeri tahmin eder. Gerçek değer ile tahmin arasındaki fark (prediction error) düzeltilerek anomali skoru üretilir. Yedek yöntem: z_score = |değer - ortalama| / standart_sapma → anomaly_score = min(100, z_score × 25)",
+    metrics: [
+      { l: "LSTM MODEL", v: "2×80 birim, 35 epoch" },
+      { l: "PRECİSİON", v: "%88.4 (84 TP, 11 FP)" },
+      { l: "RECALL", v: "%80.0 (84 TP, 21 FN)" },
+    ]},
+  { id: "decision", num: "04", title: "KARAR MOTORU", sub: "GÖNDERİLMEYE DEĞER Mİ?",
+    color: "#FF3366", icon: "⚡",
+    desc: "Anomali skoruna göre her veri paketi için karar verilir: Normal mi, şüpheli mi, yoksa gerçek bir anomali mi? Bu karar verinin Dünya'ya iletilip iletilmeyeceğini belirler.",
+    detail: "Skor < 30 → NORMAL: Veri filtrelenir, iletilmez (bant tasarrufu). Skor 30-50 → ŞÜPHELİ: Buffer'da bekletilir, toplu gönderimde dahil edilebilir. Skor ≥ 50 → ANOMALİ: Yüksek öncelikli olarak hemen iletim kuyruğuna alınır.",
+    metrics: [
+      { l: "NORMAL (DROP)", v: "Skor < 30" },
+      { l: "ŞÜPHELİ (BUFFER)", v: "Skor 30-50" },
+      { l: "ANOMALİ (TX)", v: "Skor ≥ 50" },
+    ]},
+  { id: "priority", num: "05", title: "ÖNCELİKLENDİRME", sub: "BİLİMSEL SINIFLANDIRMA",
+    color: "#FF00FF", icon: "🏷️",
+    desc: "Anomali tespit edilen veriler bilimsel önemlerine göre sınıflandırılır. Birden fazla sensör aynı anda anomali gösteriyorsa 'organik molekül imzası' olarak en yüksek öncelik atanır.",
+    detail: "Organik Molekül İmzası (3+ sensör aynı anda) → 10/10 | Metan Spike (CH₄) → 8/10 | Spektral Sapma (SPEC) → 7/10 | Nem Anomalisi (MOIST) → 6/10 | Radyasyon (UV) → 5/10 | Atmosferik (O₂, CO₂) → 5/10 | Basınç (PRESS) → 4/10 | Sıcaklık (TEMP) → 4/10",
+    metrics: [
+      { l: "EN YÜKSEK", v: "Organik Molekül — 10/10" },
+      { l: "SEVİYELER", v: "CRITICAL / HIGH / MEDIUM / LOW" },
+      { l: "SINIFLANDIRMA", v: "8 anomali tipi" },
+    ]},
+  { id: "compress", num: "06", title: "SIKIŞTIRMA & FİLTRELEME", sub: "DELTA + DEFLATE + FİLTRE",
+    color: "#00FF88", icon: "🗜️",
+    desc: "Önce anomali skoruna göre paket seçimi (yüksek skorlu veriler iletim kuyruğuna alınır). Uplink yükü, float64 akış üzerinde delta kodlama ile ardından zlib (DEFLATE) sıkıştırmasıyla küçültülür; böylece DSN üzerinde hem filtre hem de gerçek ikili sıkıştırma kazancı elde edilir.",
+    detail: "Backend: her iletim partisinde raw_value ve anomaly_score çiftleri little-endian float64 olarak paketlenir → ardışık örnek farkları (delta encode) → zlib.compress seviye 6. Filtre: skor < 50 olanlar iletilmez (256 byte/paket tasarrufu simülasyonu). İletim analizi sayfasında anlık DEFLATE oranı WebSocket stats_update ile gösterilir.",
+    metrics: [
+      { l: "ALGORİTMA", v: "Delta + zlib DEFLATE" },
+      { l: "FİLTRE", v: "Skor < 50 → DROP" },
+      { l: "PAKET (sim.)", v: "256 byte / paket" },
+    ]},
+  { id: "transmit", num: "07", title: "DSN İLETİMİ", sub: "DEEP SPACE NETWORK",
+    color: "#00F2FF", icon: "🛰️",
+    desc: "Filtrelenen veriler NASA Deep Space Network (DSN) üzerinden Dünya'ya iletilir. 3 istasyon (Goldstone, Canberra, Madrid) 120° aralıklarla yerleştirilmiş olup 7/24 kapsama sağlar. Tek yön gecikme 4-24 dakikadır.",
+    detail: "X-band direkt anten: ~3 kbps (34m DSN anteni). UHF orbiter relay (MRO, MAVEN): ~2 Mbps. Günlük iletim penceresi: 4-5 geçiş/sol, toplam ~1 Gbit kapasite. Store-and-forward protokolü: DTN (Delay-Tolerant Networking) ile paketler güvenle saklanıp iletişim penceresi açılınca gönderilir.",
+    metrics: [
+      { l: "GECİKME", v: "4-24 dakika (tek yön)" },
+      { l: "KAPASİTE", v: "~1 Gbit/sol" },
+      { l: "İSTASYONLAR", v: "Goldstone, Canberra, Madrid" },
+    ]},
+  { id: "ground", num: "08", title: "YER İSTASYONU", sub: "REASSEMBLY & DASHBOARD",
+    color: "#FF00FF", icon: "🖥️",
+    desc: "Dünya'ya ulaşan paketler yer istasyonunda birleştirilir (reassembly), dekode edilir ve veritabanına yazılır. WebSocket üzerinden gerçek zamanlı olarak dashboard'a aktarılır. Bilim insanları anomalileri inceleyip onaylar.",
+    detail: "Paket reassembly → PostgreSQL veritabanına kayıt → FastAPI REST API ile erişim → WebSocket broadcast ile React dashboard'a canlı aktarım → Bilim insanları anomalileri inceler ve onaylar → Veriler PDS (Planetary Data System) formatında arşivlenir.",
+    metrics: [
+      { l: "VERİTABANI", v: "PostgreSQL (async)" },
+      { l: "CANLI AKIŞ", v: "WebSocket broadcast" },
+      { l: "DASHBOARD", v: "React 18 + Recharts" },
+    ]},
 ];
 
-function LiveCanvas({ running, step }) {
+const BASE_STEP_MS = 3000;
+
+const SPEED_PRESETS = [
+  { id: "slow", label: "YAVAŞ", mult: 0.55 },
+  { id: "normal", label: "NORMAL", mult: 1 },
+  { id: "fast", label: "HIZLI", mult: 1.65 },
+];
+
+function PipelineCanvas({ running, step, speedMult }) {
   const ref = useRef(null);
   const anim = useRef(null);
   const particles = useRef([]);
+  const speedRef = useRef(speedMult);
+  speedRef.current = speedMult;
 
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
     const ctx = c.getContext("2d");
     const dpr = 2;
-    c.width = c.offsetWidth * dpr; c.height = c.offsetHeight * dpr;
+    c.width = c.offsetWidth * dpr;
+    c.height = c.offsetHeight * dpr;
     ctx.scale(dpr, dpr);
     const w = c.offsetWidth, h = c.offsetHeight;
-    const nodes = STEPS.map((_, i) => ({ x: 35 + (i * (w - 70)) / (STEPS.length - 1), y: h / 2 }));
+
+    const nodeY = h / 2;
+    const nodes = STEPS.map((_, i) => ({
+      x: 50 + (i * (w - 100)) / (STEPS.length - 1),
+      y: nodeY,
+    }));
 
     function spawn() {
-      const anom = Math.random() < 0.12;
-      particles.current.push({ x: nodes[0].x, y: nodes[0].y + (Math.random() - 0.5) * 14,
-        seg: 0, prog: 0, spd: 0.008 + Math.random() * 0.005,
-        color: anom ? "#FF3366" : "#00F2FF", anom, sz: anom ? 4 : 2.5, alive: true });
+      const anom = Math.random() < 0.15;
+      const sm = speedRef.current;
+      particles.current.push({
+        x: nodes[0].x, y: nodeY + (Math.random() - 0.5) * 20,
+        seg: 0, prog: 0,
+        spd: (0.0018 + Math.random() * 0.0016) * sm,
+        color: anom ? "#FF3366" : "#00F2FF",
+        anom, sz: anom ? 4.5 : 3, alive: true, opacity: 1,
+        trail: [],
+      });
     }
+
     function draw() {
       ctx.clearRect(0, 0, w, h);
+
+      // Connection lines with gradient
       for (let i = 0; i < nodes.length - 1; i++) {
-        ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[i+1].x, nodes[i+1].y);
-        ctx.strokeStyle = "#1A253530"; ctx.lineWidth = 1; ctx.stroke();
+        const from = nodes[i], to = nodes[i + 1];
+        const grad = ctx.createLinearGradient(from.x, 0, to.x, 0);
+        grad.addColorStop(0, `${STEPS[i].color}20`);
+        grad.addColorStop(1, `${STEPS[i + 1].color}20`);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
+
+      // Node circles
       nodes.forEach((pos, i) => {
+        const s = STEPS[i];
         const glow = i === step;
-        ctx.beginPath(); ctx.arc(pos.x, pos.y, glow ? 9 : 6, 0, Math.PI * 2);
-        ctx.fillStyle = glow ? STEPS[i].color : `${STEPS[i].color}50`; ctx.fill();
-        if (glow) { ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
-          ctx.strokeStyle = `${STEPS[i].color}30`; ctx.lineWidth = 2; ctx.stroke(); }
+
+        if (glow) {
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, 22, 0, Math.PI * 2);
+          ctx.strokeStyle = `${s.color}15`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, 16, 0, Math.PI * 2);
+          ctx.strokeStyle = `${s.color}30`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, glow ? 10 : 7, 0, Math.PI * 2);
+        ctx.fillStyle = glow ? s.color : `${s.color}60`;
+        ctx.shadowColor = glow ? s.color : "transparent";
+        ctx.shadowBlur = glow ? 16 : 0;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Node label
+        ctx.font = `bold ${glow ? 10 : 8}px JetBrains Mono`;
+        ctx.fillStyle = glow ? s.color : "#506070";
+        ctx.textAlign = "center";
+        ctx.fillText(s.num, pos.x, pos.y + 30);
       });
+
+      // Particles
       particles.current.forEach(p => {
         if (!p.alive) return;
-        const from = nodes[p.seg], to = nodes[Math.min(p.seg + 1, nodes.length - 1)];
+        const from = nodes[p.seg];
+        const to = nodes[Math.min(p.seg + 1, nodes.length - 1)];
+
         p.prog += p.spd;
-        if (p.prog >= 1) { p.seg++; p.prog = 0;
-          if (p.seg === 4 && !p.anom) { p.alive = false; return; }
-          if (p.seg >= nodes.length - 1) { p.alive = false; return; } }
+        if (p.prog >= 1) {
+          p.seg++;
+          p.prog = 0;
+          // Step 6 (index 5) = compression/filter — normal packets die here
+          if (p.seg === 5 && !p.anom) {
+            p.alive = false;
+            // Fade out effect
+            for (let t = 0; t < 6; t++) {
+              const fx = p.x + (Math.random() - 0.5) * 12;
+              const fy = p.y + (Math.random() - 0.5) * 12;
+              ctx.beginPath();
+              ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+              ctx.fillStyle = "#FF336640";
+              ctx.fill();
+            }
+            return;
+          }
+          if (p.seg >= nodes.length - 1) {
+            p.alive = false;
+            // Arrival effect
+            for (let t = 0; t < 8; t++) {
+              const angle = (Math.PI * 2 * t) / 8;
+              const fx = p.x + Math.cos(angle) * 10;
+              const fy = p.y + Math.sin(angle) * 10;
+              ctx.beginPath();
+              ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+              ctx.fillStyle = "#00FF8850";
+              ctx.fill();
+            }
+            return;
+          }
+        }
+
         p.x = from.x + (to.x - from.x) * p.prog;
-        p.y = from.y + (to.y - from.y) * p.prog + Math.sin(p.prog * Math.PI * 3) * 4;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2);
-        ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 8; ctx.fill(); ctx.shadowBlur = 0;
+        p.y = from.y + (to.y - from.y) * p.prog + Math.sin(p.prog * Math.PI * 2) * 6;
+
+        // Trail
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 8) p.trail.shift();
+        p.trail.forEach((t, ti) => {
+          const a = (ti / p.trail.length) * 0.3;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, p.sz * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = p.color + Math.round(a * 255).toString(16).padStart(2, "0");
+          ctx.fill();
+        });
+
+        // Main dot
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
       });
+
       particles.current = particles.current.filter(p => p.alive);
-      if (running && Math.random() < 0.14) spawn();
+      if (running && Math.random() < 0.045 * speedRef.current) spawn();
       anim.current = requestAnimationFrame(draw);
     }
     draw();
     return () => cancelAnimationFrame(anim.current);
   }, [running, step]);
 
-  return <canvas ref={ref} className="w-full h-24" />;
+  return <canvas ref={ref} className="w-full h-32" />;
 }
 
-function SensorMini() {
-  const [vals, setVals] = useState({ TEMP: -30, CH4: 15, O2: 0.14, PRESS: 700 });
-  useEffect(() => {
-    const t = setInterval(() => setVals({ TEMP: -80 + Math.random() * 100, CH4: Math.random() * 50,
-      O2: 0.1 + Math.random() * 0.1, PRESS: 600 + Math.random() * 200 }), 2000);
-    return () => clearInterval(t);
-  }, []);
+function LiveStats({ sim, stats }) {
+  const [demo, setDemo] = useState({ total: 0, tx: 0, dropped: 0 });
+  const hasLive = stats && (stats.total_packets ?? 0) > 0;
 
-  const sensors = [
-    { k: "TEMP", l: "SICAKLIK", v: vals.TEMP, u: "°C", min: -80, max: 20, c: "#00F2FF" },
-    { k: "CH4", l: "METAN", v: vals.CH4, u: "ppb", min: 0, max: 50, c: "#FFAA00" },
-    { k: "O2", l: "OKSİJEN", v: vals.O2, u: "%", min: 0.1, max: 0.2, c: "#00FF88" },
-    { k: "PRESS", l: "BASINÇ", v: vals.PRESS, u: "Pa", min: 600, max: 800, c: "#7000FF" },
+  useEffect(() => {
+    if (!sim || hasLive) return;
+    const t = setInterval(() => {
+      setDemo(prev => {
+        const anom = Math.random() < 0.15;
+        return {
+          total: prev.total + 1,
+          tx: anom ? prev.tx + 1 : prev.tx,
+          dropped: anom ? prev.dropped : prev.dropped + 1,
+        };
+      });
+    }, 1600);
+    return () => clearInterval(t);
+  }, [sim, hasLive]);
+
+  const total = hasLive ? (stats.total_packets ?? 0) : demo.total;
+  const tx = hasLive ? (stats.transmitted_packets ?? 0) : demo.tx;
+  const dropped = hasLive ? Math.max(0, total - tx) : demo.dropped;
+  const filtPct = total > 0 ? ((dropped / total) * 100).toFixed(1) : "0";
+  const dSave = hasLive ? Number(stats.payload_deflate_savings_percent ?? 0) : 0;
+  const bSave = hasLive ? Number(stats.bandwidth_saved_percent ?? 0) : 0;
+  const useDeflate = hasLive && dSave > 0;
+
+  const rows = [
+    { l: "İŞLENEN (paket)", v: total.toLocaleString("tr-TR"), c: "#00F2FF" },
+    { l: "İLETİLEN", v: tx.toLocaleString("tr-TR"), c: "#FF00FF" },
+    { l: "FİLTRE ORANI", v: `%${filtPct}`, c: "#FFAA00" },
+    {
+      l: useDeflate ? "DEFLATE TASARRUF" : hasLive ? "BANT TASARRUF" : "BANT TASARRUF (sim.)",
+      v: `%${useDeflate ? dSave.toFixed(1) : hasLive ? bSave.toFixed(1) : filtPct}`,
+      c: "#00FF88",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {sensors.map(s => {
-        const pct = Math.min(100, Math.max(0, ((s.v - s.min) / (s.max - s.min)) * 100));
-        return (
-          <div key={s.k} className="p-3" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-            <div className="flex justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "#708090" }}>{s.l}</span>
-              <span className="text-sm font-bold" style={{ color: "#BCC8D4" }}>{s.v.toFixed(1)} <span className="text-xs" style={{ color: "#607080" }}>{s.u}</span></span>
-            </div>
-            <div className="w-full h-1.5 overflow-hidden" style={{ background: "#0D1520" }}>
-              <div className="h-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: s.c, boxShadow: `0 0 6px ${s.c}50` }} />
-            </div>
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {rows.map(m => (
+        <div key={m.l} className="text-center p-3" style={{ background: "#050810", border: "1px solid #0D1520" }}>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#506070" }}>{m.l}</p>
+          <p className="text-xl font-extrabold mt-1" style={{ color: m.c, textShadow: `0 0 8px ${m.c}30` }}>{m.v}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-export default function PipelineAnimation() {
-  const [activeStep, setActiveStep] = useState(null);
+export default function PipelineAnimation({ stats }) {
+  const [activeStep, setActiveStep] = useState(0);
   const [sim, setSim] = useState(true);
   const [curStep, setCurStep] = useState(0);
-  const [log, setLog] = useState([]);
+  const [speedIdx, setSpeedIdx] = useState(1);
+  const [followActiveStep, setFollowActiveStep] = useState(true);
+
+  const speedMult = SPEED_PRESETS[speedIdx].mult;
+  const stepMs = Math.round(BASE_STEP_MS / speedMult);
 
   useEffect(() => {
     if (!sim) return;
     const t = setInterval(() => {
-      setCurStep(p => {
-        const next = (p + 1) % STEPS.length;
-        if (next === 0) {
-          const anom = Math.random() < 0.12;
-          setLog(prev => [{ id: Date.now(), time: new Date().toLocaleTimeString("tr-TR"),
-            sensor: ["TEMP","CH4","O2","CO2","MOIST","SPEC","UV","PRESS"][Math.floor(Math.random()*8)],
-            anom, score: anom ? (60+Math.random()*40).toFixed(1) : (Math.random()*29).toFixed(1), tx: anom,
-          }, ...prev].slice(0, 12));
-        }
-        return next;
-      });
-    }, 700);
+      setCurStep(p => (p + 1) % STEPS.length);
+    }, stepMs);
     return () => clearInterval(t);
-  }, [sim]);
+  }, [sim, stepMs]);
+
+  useEffect(() => {
+    if (sim && followActiveStep) setActiveStep(curStep);
+  }, [curStep, sim, followActiveStep]);
+
+  const progressPct = ((curStep + 1) / STEPS.length) * 100;
+
+  const openStep = (idx) => {
+    setFollowActiveStep(false);
+    setActiveStep(prev => (prev === idx ? null : idx));
+  };
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>VERİ_AKIŞ_MİMARİSİ</p>
-          <p className="text-sm mt-1" style={{ color: "#708090" }}>Mars rover sensör verisinin Dünya'ya ulaşma sürecini adım adım gözlemleyin</p>
+          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>
+            UÇTAN UCA VERİ AKIŞ MİMARİSİ
+          </p>
+          <p className="text-sm mt-1" style={{ color: "#708090" }}>
+            Mars rover sensör verisinin 8 katmanlı işleme sürecini adım adım gözlemleyin — her adım ~{(stepMs / 1000).toFixed(1)}s
+          </p>
         </div>
-        <button onClick={() => setSim(!sim)} className={sim ? "n-btn-danger" : "n-btn-primary"}>
-          {sim ? "SİMÜLASYONU DURDUR" : "SİMÜLASYONU BAŞLAT"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded overflow-hidden" style={{ border: "1px solid #1A2535" }}>
+            {SPEED_PRESETS.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setSpeedIdx(i)}
+                className="px-3 py-2 text-xs font-bold uppercase tracking-widest transition-all"
+                style={{
+                  background: i === speedIdx ? "#00F2FF18" : "#050810",
+                  color: i === speedIdx ? "#00F2FF" : "#607080",
+                  borderRight: i < SPEED_PRESETS.length - 1 ? "1px solid #1A2535" : "none",
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setFollowActiveStep(true)}
+            className="n-btn-primary text-xs py-2 px-3"
+            style={{ opacity: followActiveStep ? 0.5 : 1 }}
+          >
+            AKTİF_ADIMI_TAKİP
+          </button>
+          <button onClick={() => setSim(!sim)} className={sim ? "n-btn-danger" : "n-btn-primary"}>
+            {sim ? "DURDUR" : "BAŞLAT"}
+          </button>
+        </div>
       </div>
 
-      {/* Canvas */}
+      {/* Progress */}
+      <div>
+        <div className="flex justify-between text-xs uppercase tracking-widest mb-1.5" style={{ color: "#506070" }}>
+          <span>İş hattı ilerlemesi</span>
+          <span style={{ color: "#00F2FF" }}>ADIM {String(curStep + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}</span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: "#0D1520" }}>
+          <div
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${progressPct}%`,
+              background: "linear-gradient(90deg, #00F2FF, #FF00FF)",
+              boxShadow: "0 0 12px #00F2FF50",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Live stats */}
+      <LiveStats sim={sim} stats={stats} />
+
+      {/* Pipeline canvas */}
       <div className="n-hud p-5">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>CANLI_PAKET_AKIŞI</p>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>CANLI PAKET AKIŞI</p>
           <div className="flex gap-5 text-xs uppercase tracking-wide" style={{ color: "#708090" }}>
-            <span className="flex items-center gap-2"><span className="w-2.5 h-2.5" style={{ background: "#00F2FF" }} /> NORMAL</span>
-            <span className="flex items-center gap-2"><span className="w-2.5 h-2.5" style={{ background: "#FF3366" }} /> ANOMALİ</span>
-            <span style={{ color: "#506070" }}>5. adımda normal veri filtrelenir</span>
+            <span className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full" style={{ background: "#00F2FF", boxShadow: "0 0 6px #00F2FF60" }} /> NORMAL VERİ
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full" style={{ background: "#FF3366", boxShadow: "0 0 6px #FF336660" }} /> ANOMALİ VERİ
+            </span>
+            <span style={{ color: "#506070" }}>Normal veri 6. adımda filtrelenir — sadece anomali Dünya'ya ulaşır</span>
           </div>
         </div>
-        <LiveCanvas running={sim} step={curStep} />
-        <div className="flex justify-between mt-2 px-5">
+        <PipelineCanvas running={sim} step={curStep} speedMult={speedMult} />
+        <div className="flex justify-between mt-3 px-8">
           {STEPS.map((s, i) => (
-            <span key={s.id} className="text-xs uppercase tracking-wide text-center font-medium"
-              style={{ color: i === curStep ? s.color : "#506070", textShadow: i === curStep ? `0 0 8px ${s.color}40` : "none" }}>
-              {s.sub}
-            </span>
+            <button key={s.id} type="button" onClick={() => openStep(i)}
+              className="text-center transition-all cursor-pointer group"
+              style={{ maxWidth: "90px" }}>
+              <span className="text-lg mb-1 block">{s.icon}</span>
+              <span className="text-xs uppercase tracking-wide font-medium block leading-tight"
+                style={{
+                  color: i === curStep ? s.color : activeStep === i ? "#8899AA" : "#506070",
+                  textShadow: i === curStep ? `0 0 8px ${s.color}40` : "none",
+                }}>
+                {s.sub}
+              </span>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Steps */}
-        <div className="xl:col-span-2 space-y-1.5">
-          {STEPS.map((step, idx) => {
-            const isActive = activeStep === idx;
-            const isCur = curStep === idx;
-            return (
-              <button key={step.id} onClick={() => setActiveStep(isActive ? null : idx)}
-                className="w-full text-left transition-all duration-200 p-5"
-                style={{
-                  background: isActive ? "#0A0F18" : "#060910",
-                  border: `1px solid ${isActive ? "#1A2535" : "#0D1520"}`,
-                  borderLeft: `3px solid ${isCur ? step.color : "transparent"}`,
-                  boxShadow: isCur ? `inset 3px 0 12px ${step.color}15` : "none",
-                }}>
-                <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 flex items-center justify-center text-sm font-extrabold shrink-0 ${isCur ? "animate-float" : ""}`}
-                    style={{ background: `${step.color}15`, border: `1px solid ${step.color}30`, color: step.color, textShadow: `0 0 8px ${step.color}40` }}>
-                    {step.num}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold" style={{ color: "#BCC8D4" }}>{step.title}</span>
-                      {isCur && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: step.color, boxShadow: `0 0 8px ${step.color}` }} />}
-                    </div>
-                    <span className="text-xs uppercase tracking-widest" style={{ color: `${step.color}99` }}>{step.sub}</span>
-                  </div>
+      {/* Step detail cards */}
+      <div className="space-y-2">
+        {STEPS.map((step, idx) => {
+          const isActive = activeStep === idx;
+          const isCur = curStep === idx;
+          return (
+            <button key={step.id} type="button" onClick={() => openStep(idx)}
+              className="w-full text-left transition-all duration-300"
+              style={{
+                background: isActive ? "#0A0F18" : "#060910",
+                border: `1px solid ${isActive ? "#1A2535" : "#0D1520"}`,
+                borderLeft: `3px solid ${isCur ? step.color : isActive ? step.color + "60" : "transparent"}`,
+                boxShadow: isCur ? `inset 4px 0 16px ${step.color}12` : "none",
+                padding: isActive ? "20px" : "16px",
+              }}>
+              <div className="flex items-center gap-5">
+                <div className={`w-14 h-14 flex items-center justify-center text-xl shrink-0 ${isCur ? "animate-float" : ""}`}
+                  style={{ background: `${step.color}10`, border: `1px solid ${step.color}25` }}>
+                  {step.icon}
                 </div>
-
-                {isActive && (
-                  <div className="mt-4 pt-4 space-y-3 animate-slide-up" style={{ borderTop: "1px solid #0D1520" }}>
-                    <p className="text-sm leading-relaxed" style={{ color: "#8899AA" }}>{step.desc}</p>
-                    <div className="p-3" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-                      <p className="text-sm leading-relaxed" style={{ color: "#99AAB8" }}>{step.detail}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider"
-                        style={{ background: `${step.color}15`, color: step.color }}>{step.metric.l}</span>
-                      <span className="text-sm font-bold" style={{ color: "#BCC8D4" }}>{step.metric.v}</span>
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right panel */}
-        <div className="space-y-5">
-          <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#607080" }}>ANLIK_SENSÖR_OKUMALARI</p>
-            <SensorMini />
-          </div>
-
-          <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>PAKET_İŞLEM_LOGU</p>
-            <div className="space-y-1.5 max-h-80 overflow-y-auto">
-              {log.length === 0 ? (
-                <p className="text-sm py-6 text-center uppercase tracking-wide" style={{ color: "#607080" }}>SİMÜLASYON BEKLENİYOR...</p>
-              ) : log.map(l => (
-                <div key={l.id} className="flex items-center justify-between text-sm px-3 py-2" style={{
-                  background: l.anom ? "#FF33660A" : "#050810", border: `1px solid ${l.anom ? "#FF336620" : "#0D1520"}`,
-                }}>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <span style={{ color: "#708090" }} className="text-xs">{l.time}</span>
-                    <span className="font-bold" style={{ color: "#00F2FF" }}>{l.sensor}</span>
+                    <span className="text-xs font-bold px-2 py-0.5" style={{ background: `${step.color}15`, color: step.color }}>{step.num}</span>
+                    <span className="text-sm font-bold" style={{ color: "#BCC8D4" }}>{step.title}</span>
+                    {isCur && <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: step.color, boxShadow: `0 0 8px ${step.color}` }} />}
+                    <span className="text-xs uppercase tracking-widest ml-auto" style={{ color: `${step.color}80` }}>{step.sub}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold" style={{ color: l.anom ? "#FF3366" : "#607080" }}>{l.score}</span>
-                    {l.tx
-                      ? <span className="px-2 py-0.5 text-xs font-bold" style={{ background: "#00FF8815", color: "#00FF88", border: "1px solid #00FF8830" }}>TX</span>
-                      : <span className="px-2 py-0.5 text-xs font-bold" style={{ background: "#0A0F18", color: "#506070", border: "1px solid #0D1520" }}>DROP</span>
-                    }
-                  </div>
+                  {!isActive && (
+                    <p className="text-xs mt-1.5 line-clamp-1" style={{ color: "#607080" }}>{step.desc.slice(0, 100)}...</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>DSN_İSTASYONLARI</p>
-            <div className="space-y-2">
-              {[
-                { n: "GOLDSTONE DSS-14", l: "California, ABD", on: true },
-                { n: "CANBERRA DSS-43", l: "Avustralya", on: false },
-                { n: "MADRİD DSS-63", l: "İspanya", on: true },
-              ].map(d => (
-                <div key={d.n} className="flex items-center justify-between px-3 py-2.5" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-                  <div>
-                    <p className="text-sm font-bold uppercase tracking-wide" style={{ color: "#99AAB8" }}>{d.n}</p>
-                    <p className="text-xs uppercase tracking-wide" style={{ color: "#607080" }}>{d.l}</p>
+              {isActive && (
+                <div className="mt-5 pt-4 space-y-4 animate-slide-up" style={{ borderTop: `1px solid ${step.color}15` }}>
+                  <p className="text-sm leading-relaxed" style={{ color: "#8899AA" }}>{step.desc}</p>
+
+                  <div className="p-4" style={{ background: "#050810", border: `1px solid ${step.color}15` }}>
+                    <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: step.color }}>TEKNİK DETAY</p>
+                    <p className="text-sm leading-relaxed" style={{ color: "#99AAB8" }}>{step.detail}</p>
                   </div>
-                  <span className="w-2.5 h-2.5" style={{ background: d.on ? "#00FF88" : "#2A3A4D", boxShadow: d.on ? "0 0 8px #00FF8860" : "none" }} />
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {step.metrics.map(m => (
+                      <div key={m.l} className="p-3" style={{ background: "#050810", border: "1px solid #0D1520" }}>
+                        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#506070" }}>{m.l}</p>
+                        <p className="text-sm font-bold mt-1" style={{ color: "#BCC8D4" }}>{m.v}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from compressor import compress_readings_delta_deflate
+
 ANOMALY_TYPE_MAP: Dict[str, str] = {
     "CH4": "methane_spike",
     "MOIST": "moisture_anomaly",
@@ -37,6 +39,10 @@ class EdgeProcessor:
         self._max_history = 500
         self._total_packets = 0
         self._transmitted_packets = 0
+        self._payload_serialized_total = 0
+        self._payload_compressed_total = 0
+        self._last_payload_serialized = 0
+        self._last_payload_compressed = 0
 
     def _update_history(self, sensor_type: str, value: float) -> None:
         self._history[sensor_type].append(value)
@@ -148,6 +154,14 @@ class EdgeProcessor:
                 "created_at": datetime.now(timezone.utc),
             })
 
+        tx_for_compress = [r for r in processed if r["is_transmitted"]]
+        comp = compress_readings_delta_deflate(tx_for_compress)
+        if comp.serialized_bytes > 0:
+            self._payload_serialized_total += comp.serialized_bytes
+            self._payload_compressed_total += comp.compressed_bytes
+        self._last_payload_serialized = comp.serialized_bytes
+        self._last_payload_compressed = comp.compressed_bytes
+
         transmission_log = None
         if self._total_packets > 0:
             total = len(raw_readings)
@@ -175,10 +189,24 @@ class EdgeProcessor:
 
     def get_stats(self) -> dict:
         ratio = round(self._transmitted_packets / self._total_packets, 4) if self._total_packets > 0 else 0.0
+        ser = self._payload_serialized_total
+        z = self._payload_compressed_total
+        deflate_ratio = round(z / ser, 6) if ser > 0 else 0.0
+        deflate_savings_pct = round((1 - deflate_ratio) * 100, 2) if ser > 0 else 0.0
+        last_ser = self._last_payload_serialized
+        last_z = self._last_payload_compressed
+        last_deflate_ratio = round(last_z / last_ser, 6) if last_ser > 0 else 0.0
         return {
             "total_packets": self._total_packets,
             "transmitted_packets": self._transmitted_packets,
             "compression_ratio": ratio,
             "bandwidth_saved_percent": round((1 - ratio) * 100, 2),
             "total_bytes_saved": (self._total_packets - self._transmitted_packets) * 256,
+            "payload_serialized_bytes": ser,
+            "payload_deflated_bytes": z,
+            "payload_deflate_ratio": deflate_ratio,
+            "payload_deflate_savings_percent": deflate_savings_pct,
+            "last_batch_payload_bytes": last_ser,
+            "last_batch_deflated_bytes": last_z,
+            "last_batch_deflate_ratio": last_deflate_ratio,
         }
