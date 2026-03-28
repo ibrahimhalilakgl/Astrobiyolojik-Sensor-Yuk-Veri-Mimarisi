@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,70 +13,87 @@ from routers import sensor_data, anomalies, websocket as ws_router, uplink_queue
 from routers.websocket import broadcast
 import crud
 
+logger = logging.getLogger(__name__)
 processor = EdgeProcessor()
 
 
 async def simulation_loop() -> None:
     while True:
-        raw_readings = generate_sensor_readings()
-        processed, anomaly_events, transmission_log = processor.process_batch(raw_readings)
+        try:
+            raw_readings = generate_sensor_readings()
+            processed, anomaly_events, transmission_log = processor.process_batch(raw_readings)
 
-        async with async_session() as db:
-            await crud.bulk_create_readings(db, processed, anomaly_events, transmission_log)
-            await db.commit()
+            async with async_session() as db:
+                await crud.bulk_create_readings(db, processed, anomaly_events, transmission_log)
+                await db.commit()
 
-        for reading in processed:
-            pub = {k: v for k, v in reading.items() if k != "_uplink_eligible"}
-            await broadcast({"type": "sensor_reading", "data": pub})
+            for reading in processed:
+                pub = {k: v for k, v in reading.items() if k != "_uplink_eligible"}
+                await broadcast({"type": "sensor_reading", "data": pub})
 
-        for event in anomaly_events:
-            await broadcast({"type": "anomaly_alert", "data": event})
+            for event in anomaly_events:
+                await broadcast({"type": "anomaly_alert", "data": event})
 
-        await asyncio.sleep(2)
+            await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("simulation_loop failed; retrying after backoff")
+            await asyncio.sleep(5)
 
 
 async def stats_broadcast_loop() -> None:
     while True:
-        await asyncio.sleep(5)
-        async with async_session() as db:
-            overview = await crud.get_overview_stats(db)
-            qsnap = await crud.get_uplink_queue_snapshot(db)
+        try:
+            async with async_session() as db:
+                overview = await crud.get_overview_stats(db)
+                qsnap = await crud.get_uplink_queue_snapshot(db)
 
-        edge_stats = processor.get_stats()
-        rover = get_rover_state()
-        tr = overview["total_readings"]
-        tx = overview.get("transmitted_readings", 0)
-        # Paket / iletim sayıları: yalnızca DB (edge belleği süreç ömrüyle sınırlı; yenilemede düşmez)
-        await broadcast(
-            {
-                "type": "stats_update",
-                "data": {
-                    **overview,
-                    **edge_stats,
-                    "total_packets": tr,
-                    "transmitted_packets": tx,
-                    "compression_ratio": round(tx / tr, 4) if tr > 0 else 0.0,
-                    "bandwidth_saved_percent": overview["bandwidth_saved_percent"],
-                    "total_bytes_saved": overview["total_bytes_saved"],
-                    "rover": rover,
-                    "uplink_queue": qsnap,
-                },
-            }
-        )
+            edge_stats = processor.get_stats()
+            rover = get_rover_state()
+            tr = overview["total_readings"]
+            tx = overview.get("transmitted_readings", 0)
+            # Paket / iletim sayıları: yalnızca DB (edge belleği süreç ömrüyle sınırlı; yenilemede düşmez)
+            await broadcast(
+                {
+                    "type": "stats_update",
+                    "data": {
+                        **overview,
+                        **edge_stats,
+                        "total_packets": tr,
+                        "transmitted_packets": tx,
+                        "compression_ratio": round(tx / tr, 4) if tr > 0 else 0.0,
+                        "bandwidth_saved_percent": overview["bandwidth_saved_percent"],
+                        "total_bytes_saved": overview["total_bytes_saved"],
+                        "rover": rover,
+                        "uplink_queue": qsnap,
+                    },
+                }
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("stats_broadcast_loop failed")
+        await asyncio.sleep(5)
 
 
 async def uplink_drain_loop() -> None:
     while True:
-        await asyncio.sleep(10)
-        async with async_session() as db:
-            sent_payloads = await crud.drain_uplink_queue(db, processor, max_items=6)
-            await db.commit()
-        for row in sent_payloads:
-            await broadcast({"type": "sensor_reading", "data": row})
-        if sent_payloads:
+        try:
+            await asyncio.sleep(10)
             async with async_session() as db:
-                snap = await crud.get_uplink_queue_snapshot(db)
-            await broadcast({"type": "uplink_queue_update", "data": snap})
+                sent_payloads = await crud.drain_uplink_queue(db, processor, max_items=6)
+                await db.commit()
+            for row in sent_payloads:
+                await broadcast({"type": "sensor_reading", "data": row})
+            if sent_payloads:
+                async with async_session() as db:
+                    snap = await crud.get_uplink_queue_snapshot(db)
+                await broadcast({"type": "uplink_queue_update", "data": snap})
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("uplink_drain_loop failed")
 
 
 @asynccontextmanager

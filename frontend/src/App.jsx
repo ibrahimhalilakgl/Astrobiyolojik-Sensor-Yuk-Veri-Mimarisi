@@ -5,9 +5,16 @@ import Dashboard from "./components/Dashboard";
 const WS_URL = `ws://${window.location.hostname}:${window.location.port}/ws/live-feed`;
 
 export default function App() {
-  const { status, lastMessage } = useWebSocket(WS_URL);
-  const { readings, readingsByType, anomalies, chartData, stats, acknowledgeAnomaly } =
-    useAnomalyData(lastMessage);
+  const { status, messageBatch } = useWebSocket(WS_URL);
+  const {
+    readings,
+    readingsByType,
+    anomalies,
+    chartData,
+    stats,
+    acknowledgeAnomaly,
+    appendAnomaliesFromApi,
+  } = useAnomalyData(messageBatch);
 
   return (
     <Dashboard
@@ -18,6 +25,7 @@ export default function App() {
       chartData={chartData}
       stats={stats}
       onAcknowledge={acknowledgeAnomaly}
+      appendAnomaliesFromApi={appendAnomaliesFromApi}
     />
   );
 }

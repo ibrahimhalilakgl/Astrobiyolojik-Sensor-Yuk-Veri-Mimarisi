@@ -71,6 +71,10 @@ class AnomalyStats(BaseModel):
     avg_priority: float
 
 
+class AnomalyEventDetailResponse(AnomalyEventResponse):
+    reading: Optional[SensorReadingResponse] = None
+
+
 class TransmissionLogResponse(BaseModel):
     id: UUID
     batch_id: UUID

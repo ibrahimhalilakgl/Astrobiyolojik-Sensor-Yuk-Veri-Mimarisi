@@ -25,7 +25,16 @@ const NAV = [
   { id: "dataset", label: "VERİ_SETİ" },
 ];
 
-export default function Dashboard({ wsStatus, readings, readingsByType, anomalies, chartData, stats, onAcknowledge }) {
+export default function Dashboard({
+  wsStatus,
+  readings,
+  readingsByType,
+  anomalies,
+  chartData,
+  stats,
+  onAcknowledge,
+  appendAnomaliesFromApi,
+}) {
   const [active, setActive] = useState("dashboard");
   const sol = stats?.rover?.sol ?? "—";
   const lat = stats?.rover?.lat ?? "—";
@@ -40,6 +49,11 @@ export default function Dashboard({ wsStatus, readings, readingsByType, anomalie
     lightOne != null && lightRt != null
       ? `MARS→DÜNYA IŞIK GECİKMESİ: ${Number(lightOne).toFixed(1)} dk (tek yön) · ${Number(lightRt).toFixed(1)} dk (gidiş-dönüş) — veriler anlık değildir`
       : "MARS→DÜNYA IŞIK GECİKMESİ: ~3–22 dk (konuma bağlı) — veriler anlık değildir";
+
+  const dataFlowLabel =
+    wsStatus === "connected" ? "AKTİF" : wsStatus === "connecting" ? "BAĞLANIYOR" : "KESİNTİ";
+  const signalLabel = wsStatus === "connected" ? "BAĞLI" : "DEĞİL";
+  const signalColor = wsStatus === "connected" ? "#00FF88" : "#FF3366";
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "#04060A" }}>
@@ -115,12 +129,15 @@ export default function Dashboard({ wsStatus, readings, readingsByType, anomalie
 
         {/* ANA İÇERİK */}
         <main className="flex-1 flex flex-col overflow-hidden" style={{ background: "#04060A" }}>
-          <div className="h-11 shrink-0 flex items-center justify-between px-6" style={{ background: "#050810", borderBottom: "1px solid #0D1520" }}>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold uppercase tracking-wide" style={{ color: "#99AAB8" }}>
-                {NAV.find(n => n.id === active)?.label}
-              </span>
-              <span className="text-xs" style={{ color: "#506070" }}>GERÇEK ZAMANLI ANALİZ | MARS-2026</span>
+          <div className="min-h-11 shrink-0 flex items-center justify-between px-6 py-1.5 gap-4" style={{ background: "#050810", borderBottom: "1px solid #0D1520" }}>
+            <div className="flex flex-col justify-center gap-0.5 min-w-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-bold uppercase tracking-wide" style={{ color: "#99AAB8" }}>
+                  {NAV.find(n => n.id === active)?.label}
+                </span>
+                <span className="text-xs" style={{ color: "#506070" }}>GERÇEK ZAMANLI ANALİZ | MARS-2026</span>
+              </div>
+              <p className="text-[10px] leading-snug uppercase tracking-wide" style={{ color: "#3A4A5C" }}>{delayLabel}</p>
             </div>
             <div className="flex items-center gap-2.5">
               {[
@@ -148,7 +165,13 @@ export default function Dashboard({ wsStatus, readings, readingsByType, anomalie
               </>
             )}
             {active === "pipeline" && <PipelineAnimation stats={stats} />}
-            {active === "anomalies" && <AlertCenter anomalies={anomalies} onAcknowledge={onAcknowledge} />}
+            {active === "anomalies" && (
+              <AlertCenter
+                anomalies={anomalies}
+                onAcknowledge={onAcknowledge}
+                appendAnomaliesFromApi={appendAnomaliesFromApi}
+              />
+            )}
             {active === "sensor-detail" && (
               <SensorDetail readings={readings} readingsByType={readingsByType} anomalies={anomalies} />
             )}
@@ -159,18 +182,18 @@ export default function Dashboard({ wsStatus, readings, readingsByType, anomalie
             {active === "uplink-queue" && <UplinkQueue statsQueue={stats?.uplink_queue} />}
           </div>
 
-          <footer className="h-7 shrink-0 flex items-center px-5 gap-8 text-xs font-mono" style={{ background: "#060910", borderTop: "1px solid #0D1520" }}>
-            <span style={{ color: "#00F2FF" }}>VERİ_AKIŞI: <span style={{ color: "#708090" }}>[AKTİF]</span></span>
-            <span style={{ color: "#506070" }}>AZIMUT: <span style={{ color: "#8899AA" }}>182.2</span></span>
+          <footer className="min-h-7 shrink-0 flex flex-wrap items-center px-5 gap-x-8 gap-y-1 py-1 text-xs font-mono" style={{ background: "#060910", borderTop: "1px solid #0D1520" }}>
+            <span style={{ color: "#00F2FF" }}>VERİ_AKIŞI: <span style={{ color: "#708090" }}>{dataFlowLabel}</span></span>
+            <span style={{ color: "#506070" }}>AZIMUT: <span style={{ color: "#506070" }}>—</span></span>
             <span style={{ color: "#FF00FF" }}>KRİTİK: <span style={{ color: "#708090" }}>{totalAnomaly > 0 ? "AKTİF" : "YOK"}</span></span>
-            <span style={{ color: "#506070" }}>TAMPON: <span style={{ color: "#00FF88" }}>%92</span></span>
+            <span style={{ color: "#506070" }}>TAMPON: <span style={{ color: "#506070" }}>—</span></span>
             <span style={{ color: "#506070" }}>
               IŞIK_GECİKMESİ:{" "}
               <span style={{ color: "#8899AA" }}>
                 {lightOne != null ? `${Number(lightOne).toFixed(1)} dk (1Y)` : "—"}
               </span>
             </span>
-            <span className="ml-auto font-bold text-glow-green" style={{ color: "#00FF88" }}>SİNYAL_KİLİTLİ</span>
+            <span className="ml-auto font-bold uppercase tracking-wider" style={{ color: signalColor }}>SİNYAL: {signalLabel}</span>
           </footer>
         </main>
       </div>

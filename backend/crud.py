@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import case, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import AnomalyEvent, SensorReading, TransmissionLog, UplinkQueueItem
@@ -235,13 +235,29 @@ async def get_anomalies(
     severity: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    acknowledged: Optional[bool] = None,
 ) -> List[AnomalyEvent]:
     stmt = select(AnomalyEvent).order_by(desc(AnomalyEvent.created_at))
     if severity:
         stmt = stmt.where(AnomalyEvent.severity == severity.upper())
+    if acknowledged is not None:
+        stmt = stmt.where(AnomalyEvent.acknowledged == acknowledged)
     stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_anomaly_with_reading(
+    db: AsyncSession, anomaly_id: UUID
+) -> Optional[tuple[AnomalyEvent, Optional[SensorReading]]]:
+    result = await db.execute(
+        select(AnomalyEvent).where(AnomalyEvent.id == anomaly_id)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        return None
+    reading = await db.get(SensorReading, event.reading_id)
+    return event, reading
 
 
 async def get_recent_anomalies(db: AsyncSession, limit: int = 10) -> List[AnomalyEvent]:
@@ -298,9 +314,16 @@ async def get_overview_stats(db: AsyncSession) -> dict:
 
     saved_pct = round((1 - transmitted / total_readings) * 100, 2) if total_readings > 0 else 0.0
 
+    sev_rank = case(
+        (AnomalyEvent.severity == "CRITICAL", 4),
+        (AnomalyEvent.severity == "HIGH", 3),
+        (AnomalyEvent.severity == "MEDIUM", 2),
+        (AnomalyEvent.severity == "LOW", 1),
+        else_=0,
+    )
     severity_q = await db.execute(
         select(AnomalyEvent.severity)
-        .order_by(desc(AnomalyEvent.created_at))
+        .order_by(desc(sev_rank), desc(AnomalyEvent.created_at))
         .limit(1)
     )
     highest = severity_q.scalar_one_or_none()

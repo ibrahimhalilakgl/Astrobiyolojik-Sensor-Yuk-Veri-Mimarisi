@@ -4,10 +4,23 @@ const RECONNECT_DELAY = 3000;
 
 export default function useWebSocket(url) {
   const [status, setStatus] = useState("disconnected");
-  const [lastMessage, setLastMessage] = useState(null);
+  const [messageBatch, setMessageBatch] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const mountedRef = useRef(true);
+  const queueRef = useRef([]);
+  const flushScheduledRef = useRef(false);
+  const seqRef = useRef(0);
+
+  const flushQueue = useCallback(() => {
+    flushScheduledRef.current = false;
+    if (!mountedRef.current) return;
+    const items = queueRef.current;
+    queueRef.current = [];
+    if (items.length === 0) return;
+    seqRef.current += 1;
+    setMessageBatch({ seq: seqRef.current, items });
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -23,7 +36,11 @@ export default function useWebSocket(url) {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (mountedRef.current) setLastMessage(data);
+        queueRef.current.push(data);
+        if (!flushScheduledRef.current) {
+          flushScheduledRef.current = true;
+          queueMicrotask(flushQueue);
+        }
       } catch {
         /* ignore malformed JSON */
       }
@@ -40,7 +57,7 @@ export default function useWebSocket(url) {
     ws.onerror = () => {
       ws.close();
     };
-  }, [url]);
+  }, [url, flushQueue]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -58,5 +75,5 @@ export default function useWebSocket(url) {
     }
   }, []);
 
-  return { status, lastMessage, send };
+  return { status, messageBatch, send };
 }

@@ -41,8 +41,17 @@ export function severityColor(severity) {
 }
 
 export function statusBadge(score) {
-  if (score >= 60) return { label: "ANOMALİ", bg: "#FF336618", text: "#FF3366", border: "#FF336640" };
-  if (score >= 30) return { label: "ŞÜPHELİ", bg: "#FFAA0018", text: "#FFAA00", border: "#FFAA0040" };
+  const unknown = {
+    label: "BİLİNMİYOR",
+    bg: "#1A1F2A18",
+    text: "#607080",
+    border: "#2A3A4D",
+  };
+  if (score === undefined || score === null) return unknown;
+  const n = typeof score === "number" ? score : Number(score);
+  if (Number.isNaN(n)) return unknown;
+  if (n >= 60) return { label: "ANOMALİ", bg: "#FF336618", text: "#FF3366", border: "#FF336640" };
+  if (n >= 30) return { label: "ŞÜPHELİ", bg: "#FFAA0018", text: "#FFAA00", border: "#FFAA0040" };
   return { label: "NORMAL", bg: "#00FF8818", text: "#00FF88", border: "#00FF8840" };
 }
 

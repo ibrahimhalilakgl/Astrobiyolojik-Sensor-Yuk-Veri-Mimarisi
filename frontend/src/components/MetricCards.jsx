@@ -33,7 +33,7 @@ export default function MetricCards({ stats }) {
             backgroundColor: sevS.bg, color: sevS.text, border: `1px solid ${sevS.border}`, textShadow: `0 0 8px ${sevS.text}40`,
           }}>{sev}</span>
         ) : <p className="text-4xl font-extrabold" style={{ color: "#2A3A4D" }}>—</p>}
-        <p className="text-xs mt-2 uppercase tracking-wide" style={{ color: "#607080" }}>Son anomali seviyesi</p>
+        <p className="text-xs mt-2 uppercase tracking-wide" style={{ color: "#607080" }}>Kayıtlar arası en yüksek şiddet (eşitlikte en yeni)</p>
         <div className="mt-4 h-px" style={{ background: "linear-gradient(to right, #7000FF30, transparent 70%)" }} />
       </div>
     </div>

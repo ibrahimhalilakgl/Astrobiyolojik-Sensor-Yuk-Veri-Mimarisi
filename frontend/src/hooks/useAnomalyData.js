@@ -4,8 +4,34 @@ const MAX_READINGS = 120;
 /** Sensör detay / canlı: her tip için en güncel N okuma (karışık kuyruk yerine) */
 const MAX_PER_SENSOR = 50;
 const BOOTSTRAP_READINGS_LIMIT = 3000;
-const MAX_ANOMALIES = 100;
+const MAX_ANOMALIES = 400;
+const ANOMALY_BOOTSTRAP_LIMIT = 300;
 const MAX_CHART_POINTS = 60;
+
+function mergeAnomalyLists(fromApi, currentWs) {
+  const m = new Map();
+  for (const a of fromApi) {
+    if (a?.id != null) m.set(String(a.id), { ...a });
+  }
+  for (const a of currentWs) {
+    const id = String(a.id);
+    const existing = m.get(id);
+    m.set(id, existing ? { ...existing, ...a } : { ...a });
+  }
+  return Array.from(m.values()).sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+}
+
+function appendUniqueAnomalies(prev, newRows) {
+  const m = new Map(prev.map((a) => [String(a.id), a]));
+  for (const a of newRows) {
+    if (a?.id != null && !m.has(String(a.id))) m.set(String(a.id), a);
+  }
+  return Array.from(m.values()).sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+}
 
 function bucketBySensorType(rows, capPerType) {
   const buckets = {};
@@ -64,7 +90,26 @@ function mergeMixedReadings(prev, dbRows) {
     .slice(0, MAX_READINGS);
 }
 
-export default function useAnomalyData(lastMessage) {
+function chartPointFromReading(r) {
+  const t = new Date(r.created_at).toLocaleTimeString("tr-TR");
+  const sensor = r.sensor_type ?? "?";
+  return {
+    time: `${t} · ${sensor}`,
+    score: r.anomaly_score,
+    sensor,
+  };
+}
+
+/** DB bootstrap sonrası grafik boş kalmasın (yalnızca WS ile doldurulunca yenilemede VERİ_BEKLENİYOR oluşuyordu). */
+function rowsToChartPoints(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const sorted = [...rows].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  );
+  return sorted.slice(-MAX_CHART_POINTS).map((r) => chartPointFromReading(r));
+}
+
+export default function useAnomalyData(messageBatch) {
   const [readings, setReadings] = useState([]);
   const [readingsByType, setReadingsByType] = useState({});
   const [anomalies, setAnomalies] = useState([]);
@@ -81,6 +126,7 @@ export default function useAnomalyData(lastMessage) {
         const dbBuckets = bucketBySensorType(rows, MAX_PER_SENSOR);
         setReadings((prev) => mergeMixedReadings(prev, rows));
         setReadingsByType((prev) => mergeTypeBuckets(prev, dbBuckets));
+        setChartData(rowsToChartPoints(rows));
       })
       .catch(() => {});
     return () => {
@@ -89,38 +135,62 @@ export default function useAnomalyData(lastMessage) {
   }, []);
 
   useEffect(() => {
-    if (!lastMessage) return;
+    let cancelled = false;
+    fetch(`/api/anomalies?limit=${ANOMALY_BOOTSTRAP_LIMIT}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        setAnomalies((prev) => mergeAnomalyLists(rows, prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    switch (lastMessage.type) {
-      case "sensor_reading":
-        setReadings((prev) => [lastMessage.data, ...prev].slice(0, MAX_READINGS));
-        setReadingsByType((prev) => mergeReadingIntoTypeMap(prev, lastMessage.data));
-        setChartData((prev) => {
-          const point = {
-            time: new Date(lastMessage.data.created_at).toLocaleTimeString("tr-TR"),
-            score: lastMessage.data.anomaly_score,
-            sensor: lastMessage.data.sensor_type,
-          };
-          return [...prev, point].slice(-MAX_CHART_POINTS);
-        });
-        break;
+  useEffect(() => {
+    const items = messageBatch?.items;
+    if (!items?.length) return;
 
-      case "anomaly_alert":
-        setAnomalies((prev) => [lastMessage.data, ...prev].slice(0, MAX_ANOMALIES));
-        break;
+    for (const msg of items) {
+      switch (msg.type) {
+        case "sensor_reading":
+          setReadings((prev) => [msg.data, ...prev].slice(0, MAX_READINGS));
+          setReadingsByType((prev) => mergeReadingIntoTypeMap(prev, msg.data));
+          setChartData((prev) => {
+            const point = chartPointFromReading(msg.data);
+            return [...prev, point].slice(-MAX_CHART_POINTS);
+          });
+          break;
 
-      case "stats_update":
-        setStats(lastMessage.data);
-        break;
+        case "anomaly_alert":
+          setAnomalies((prev) => {
+            const data = msg.data;
+            const m = new Map(prev.map((a) => [String(a.id), a]));
+            const id = String(data.id);
+            const existing = m.get(id);
+            m.set(id, existing ? { ...existing, ...data } : { ...data });
+            return Array.from(m.values())
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, MAX_ANOMALIES);
+          });
+          break;
 
-      case "uplink_queue_update":
-        setStats((prev) => ({
-          ...(prev || {}),
-          uplink_queue: lastMessage.data,
-        }));
-        break;
+        case "stats_update":
+          setStats(msg.data);
+          break;
+
+        case "uplink_queue_update":
+          setStats((prev) => ({
+            ...(prev || {}),
+            uplink_queue: msg.data,
+          }));
+          break;
+        default:
+          break;
+      }
     }
-  }, [lastMessage]);
+  }, [messageBatch]);
 
   const acknowledgeAnomaly = useCallback(async (id) => {
     try {
@@ -129,7 +199,9 @@ export default function useAnomalyData(lastMessage) {
       });
       if (res.ok) {
         setAnomalies((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a))
+          prev.map((a) =>
+            String(a.id) === String(id) ? { ...a, acknowledged: true } : a
+          )
         );
       }
     } catch {
@@ -137,5 +209,18 @@ export default function useAnomalyData(lastMessage) {
     }
   }, []);
 
-  return { readings, readingsByType, anomalies, chartData, stats, acknowledgeAnomaly };
+  const appendAnomaliesFromApi = useCallback((rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    setAnomalies((prev) => appendUniqueAnomalies(prev, rows));
+  }, []);
+
+  return {
+    readings,
+    readingsByType,
+    anomalies,
+    chartData,
+    stats,
+    acknowledgeAnomaly,
+    appendAnomaliesFromApi,
+  };
 }

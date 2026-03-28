@@ -33,7 +33,7 @@ export default function AnomalyChart({ data }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+        <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 28 }}>
           <defs>
             <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#FF3366" stopOpacity={0.35} />
@@ -42,7 +42,16 @@ export default function AnomalyChart({ data }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#0D152020" />
-          <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#708090", fontFamily: "JetBrains Mono" }} axisLine={{ stroke: "#0D1520" }} tickLine={false} />
+          <XAxis
+            dataKey="time"
+            interval="preserveStartEnd"
+            angle={-28}
+            textAnchor="end"
+            height={52}
+            tick={{ fontSize: 9, fill: "#708090", fontFamily: "JetBrains Mono" }}
+            axisLine={{ stroke: "#0D1520" }}
+            tickLine={false}
+          />
           <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#708090", fontFamily: "JetBrains Mono" }} axisLine={{ stroke: "#0D1520" }} tickLine={false} />
           <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#00F2FF15" }} />
           <ReferenceLine y={60} stroke="#FF336640" strokeDasharray="6 3" />
