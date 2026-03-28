@@ -66,7 +66,7 @@ async def stats_broadcast_loop() -> None:
 
 async def uplink_drain_loop() -> None:
     while True:
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(10)
         async with async_session() as db:
             sent_payloads = await crud.drain_uplink_queue(db, processor, max_items=6)
             await db.commit()
