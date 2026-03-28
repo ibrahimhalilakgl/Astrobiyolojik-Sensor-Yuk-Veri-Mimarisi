@@ -178,6 +178,45 @@ export default function Dashboard({
             </div>
           </div>
 
+          {stats == null && (
+            <div
+              className="shrink-0 px-6 py-1.5 text-[11px] font-mono leading-snug border-b flex items-center gap-2"
+              style={{
+                background: "#060D14",
+                borderColor: "#00F2FF28",
+                color: "#708090",
+              }}
+              role="status"
+              aria-live="polite"
+            >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
+                style={{
+                  background: wsStatus === "connected" ? "#00F2FF" : "#FFAA00",
+                  boxShadow: wsStatus === "connected" ? "0 0 8px #00F2FF80" : "0 0 6px #FFAA0060",
+                }}
+                aria-hidden
+              />
+              {wsStatus === "connected" && (
+                <span>
+                  <span style={{ color: "#99AAB8" }}>Canlı veri özeti yükleniyor…</span>{" "}
+                  <span style={{ color: "#506070" }}>
+                    İlk özet birkaç saniye içinde gelir; yaklaşık 5 saniyede bir yenilenir. Üstteki sayaçlar ve kartlardaki bekleme animasyonu hata değildir.
+                  </span>
+                </span>
+              )}
+              {wsStatus === "connecting" && (
+                <span style={{ color: "#99AAB8" }}>WebSocket bağlantısı kuruluyor… Canlı özet bağlantı sonrası yüklenecek.</span>
+              )}
+              {wsStatus === "disconnected" && (
+                <span>
+                  <span style={{ color: "#FFAA00" }}>Sunucuya bağlı değil.</span>{" "}
+                  <span style={{ color: "#506070" }}>Canlı özet ve tam metrikler için bağlantı gerekir.</span>
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {active === "dashboard" && (
               <>
