@@ -1,0 +1,55 @@
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from "recharts";
+
+function ChartTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="p-3" style={{ background: "#080C14", border: "1px solid #1A2535" }}>
+      <p className="text-xs" style={{ color: "#8899AA" }}>{d.time}</p>
+      <p className="font-bold text-lg mt-0.5" style={{ color: "#00F2FF", textShadow: "0 0 10px #00F2FF40" }}>{d.score}</p>
+      <p className="text-xs" style={{ color: "#708090" }}>SENSÖR: <span style={{ color: "#BCC8D4" }}>{d.sensor}</span></p>
+    </div>
+  );
+}
+
+export default function AnomalyChart({ data }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="n-hud p-6">
+        <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#607080" }}>ANOMALİ_SKORU_ZAMAN_SERİSİ</p>
+        <div className="flex items-center justify-center h-60 text-sm" style={{ color: "#607080" }}>VERİ_BEKLENİYOR...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="n-hud p-6">
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#607080" }}>ANOMALİ_SKORU_ZAMAN_SERİSİ</p>
+        <div className="flex gap-5 text-xs uppercase tracking-wide" style={{ color: "#708090" }}>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3" style={{ background: "#FF336660" }} /> ANOMALİ</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3" style={{ background: "#FFAA0040" }} /> ŞÜPHELİ</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3" style={{ background: "#00FF8830" }} /> NORMAL</span>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={260}>
+        <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF3366" stopOpacity={0.35} />
+              <stop offset="40%" stopColor="#FFAA00" stopOpacity={0.1} />
+              <stop offset="100%" stopColor="#00FF88" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#0D152020" />
+          <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#708090", fontFamily: "JetBrains Mono" }} axisLine={{ stroke: "#0D1520" }} tickLine={false} />
+          <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#708090", fontFamily: "JetBrains Mono" }} axisLine={{ stroke: "#0D1520" }} tickLine={false} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#00F2FF15" }} />
+          <ReferenceLine y={60} stroke="#FF336640" strokeDasharray="6 3" />
+          <ReferenceLine y={30} stroke="#FFAA0025" strokeDasharray="6 3" />
+          <Area type="monotone" dataKey="score" stroke="#00F2FF" strokeWidth={2} fill="url(#sg)" dot={false} isAnimationActive={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
