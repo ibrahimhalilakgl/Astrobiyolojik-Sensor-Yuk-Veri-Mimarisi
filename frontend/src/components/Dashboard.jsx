@@ -30,7 +30,7 @@ export const NAV = [
   { id: "dataset", path: "veri_seti", label: "VERİ_SETİ" },
   { id: "orbiter", path: "orbiter_role", label: "ORBITER_RÖLE" },
   { id: "earth-cloud", path: "yer_istasyonu_bulut", label: "YER_İSTASYONU_BULUT" },
-  { id: "rover-ai", path: "rover_zekasi", label: "ROVER_ZEKASİ", icon: "🧠" },
+  { id: "rover-ai", path: "rover_zekasi", label: "ROVER_ZEKASİ" },
 ];
 
 export default function Dashboard({

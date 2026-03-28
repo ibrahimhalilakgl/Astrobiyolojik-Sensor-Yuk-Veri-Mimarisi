@@ -1,12 +1,15 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { formatNumber } from "../utils/formatters";
 
-// MSL (Curiosity) — Gale Krateri / Bradbury İniş bölgesi (harita merkezi)
-const GALE_CENTER = [-4.5892, 137.4417];
-const LANDING = [-4.5895, 137.4414];
+/** NASA Mars Location — M20 Perseverance, Jezero (yeni sekmede; iframe CSP ile engellenir) */
+export const NASA_M20_LOCATION_MAP_URL =
+  "https://mars.nasa.gov/maps/location/?mission=M20&site=NOW&mapLon=77.2690773010254&mapLat=18.450463604466755&mapZoom=13&globeLon=77.23515809&globeLat=18.42769536999999&globeZoom=11&globeCamera=0,-9765.625,0,0,1,0&panePercents=0,100,0&on=Rover%20Position%241.00,Rover%20Waypoints%241.00,Rover%20Drive%20Path%241.00,Sampling%20Locations%241.00,Helicopter%20Position%241.00,Color%20Basemap%241.00,Grayscale%20Basemap%241.00,Northeast%20Syrtis%20Base%20Map%241.00";
+
 const TRAIL_MAX = 500;
+const JEZERO_CENTER = [18.4505, 77.2691];
+const LANDING = [18.45046, 77.26908];
 const MARS_TILES = "https://s3-eu-west-1.amazonaws.com/whereonmars.cartodb.net/viking_mdim21_global/{z}/{x}/{y}.png";
 
 export default function RoverMap({ stats }) {
@@ -15,18 +18,33 @@ export default function RoverMap({ stats }) {
   const roverMarker = useRef(null);
   const trailLine = useRef(null);
   const [trail, setTrail] = useState([]);
+  const lastPosKey = useRef(null);
+  const [copied, setCopied] = useState(false);
 
   const roverLat = stats?.rover?.lat;
   const roverLon = stats?.rover?.lon;
   const sol = stats?.rover?.sol ?? "—";
 
-  // Initialize map once
+  const openNASAInNewTab = () => {
+    window.open(NASA_M20_LOCATION_MAP_URL, "_blank", "noopener,noreferrer");
+  };
+
+  const copyNasaLink = async () => {
+    try {
+      await navigator.clipboard.writeText(NASA_M20_LOCATION_MAP_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* izin yok */
+    }
+  };
+
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
     const map = L.map(mapRef.current, {
-      center: GALE_CENTER,
-      zoom: 6,
+      center: JEZERO_CENTER,
+      zoom: 8,
       minZoom: 2,
       maxZoom: 9,
       zoomControl: true,
@@ -41,17 +59,15 @@ export default function RoverMap({ stats }) {
       errorTileUrl: "",
     }).addTo(map);
 
-    // Gale krateri (yaklaşık gösterim)
-    L.circle(GALE_CENTER, {
-      radius: 120000,
+    L.circle(JEZERO_CENTER, {
+      radius: 80000,
       color: "#FFAA0050",
       weight: 1,
       fillColor: "#FFAA0010",
-      fillOpacity: 0.3,
+      fillOpacity: 0.25,
       dashArray: "6 4",
     }).addTo(map);
 
-    // Landing site marker
     const landIcon = L.divIcon({
       className: "",
       html: `<div style="width:14px;height:14px;border-radius:50%;background:#7000FF50;border:2px solid #9060FF;box-shadow:0 0 10px #7000FF60;"></div>`,
@@ -59,16 +75,17 @@ export default function RoverMap({ stats }) {
       iconAnchor: [7, 7],
     });
 
-    L.marker(LANDING, { icon: landIcon }).addTo(map)
-      .bindPopup(`
-        <div style="background:#080C14;color:#BCC8D4;padding:10px;border:1px solid #1A2535;font-family:JetBrains Mono,monospace;font-size:11px;min-width:180px;">
-          <p style="color:#9060FF;font-weight:bold;font-size:12px;">İNİŞ BÖLGESİ</p>
-          <p style="color:#708090;margin-top:6px;">MSL Curiosity — Gale Krateri (Bradbury İniş)</p>
+    L.marker(LANDING, { icon: landIcon })
+      .addTo(map)
+      .bindPopup(
+        `<div style="background:#080C14;color:#BCC8D4;padding:10px;border:1px solid #1A2535;font-family:JetBrains Mono,monospace;font-size:11px;min-width:180px;">
+          <p style="color:#9060FF;font-weight:bold;font-size:12px;">İNİŞ ALANI (YAKLAŞIK)</p>
+          <p style="color:#708090;margin-top:6px;">M2020 Perseverance — Jezero krateri</p>
           <p style="color:#506070;margin-top:4px;">${LANDING[0].toFixed(4)}°K, ${LANDING[1].toFixed(4)}°D</p>
-        </div>
-      `, { className: "mars-popup" });
+        </div>`,
+        { className: "mars-popup" }
+      );
 
-    // Rover marker
     const roverIcon = L.divIcon({
       className: "",
       html: `<div style="position:relative;width:20px;height:20px;">
@@ -80,10 +97,10 @@ export default function RoverMap({ stats }) {
       iconAnchor: [10, 10],
     });
 
-    roverMarker.current = L.marker(GALE_CENTER, { icon: roverIcon }).addTo(map)
+    roverMarker.current = L.marker(JEZERO_CENTER, { icon: roverIcon })
+      .addTo(map)
       .bindPopup("", { className: "mars-popup" });
 
-    // Trail polyline
     trailLine.current = L.polyline([], {
       color: "#00F2FF",
       weight: 2,
@@ -92,26 +109,30 @@ export default function RoverMap({ stats }) {
     }).addTo(map);
 
     mapInstance.current = map;
-
-    return () => { map.remove(); mapInstance.current = null; };
+    return () => {
+      map.remove();
+      mapInstance.current = null;
+    };
   }, []);
 
-  // Update rover position
   useEffect(() => {
-    if (!roverLat || !roverLon || !roverMarker.current) return;
+    if (roverLat == null || roverLon == null || !roverMarker.current) return;
+    const key = `${roverLat},${roverLon}`;
+    if (lastPosKey.current === key) return;
+    lastPosKey.current = key;
 
     const pos = [roverLat, roverLon];
     roverMarker.current.setLatLng(pos);
-    roverMarker.current.setPopupContent(`
-      <div style="background:#080C14;color:#BCC8D4;padding:10px;border:1px solid #1A2535;font-family:JetBrains Mono,monospace;font-size:11px;min-width:180px;">
-        <p style="color:#00F2FF;font-weight:bold;font-size:12px;">CURIOSITY ROVER</p>
+    roverMarker.current.setPopupContent(
+      `<div style="background:#080C14;color:#BCC8D4;padding:10px;border:1px solid #1A2535;font-family:JetBrains Mono,monospace;font-size:11px;min-width:180px;">
+        <p style="color:#00F2FF;font-weight:bold;font-size:12px;">ROVER (SİM)</p>
         <p style="color:#708090;margin-top:6px;">Enlem: ${roverLat.toFixed(6)}°K</p>
         <p style="color:#708090;">Boylam: ${roverLon.toFixed(6)}°D</p>
         <p style="color:#FF00FF;margin-top:6px;font-weight:bold;">SOL: ${sol}</p>
-      </div>
-    `);
+      </div>`
+    );
 
-    setTrail(prev => {
+    setTrail((prev) => {
       const next = [...prev, pos].slice(-TRAIL_MAX);
       if (trailLine.current) trailLine.current.setLatLngs(next);
       return next;
@@ -130,107 +151,196 @@ export default function RoverMap({ stats }) {
   }, [trail]);
 
   const focusRover = () => {
-    if (mapInstance.current && roverLat && roverLon) {
+    if (mapInstance.current && roverLat != null && roverLon != null) {
       mapInstance.current.flyTo([roverLat, roverLon], 8, { duration: 1 });
     }
   };
 
-  const focusGale = () => {
+  const focusJezero = () => {
     if (mapInstance.current) {
-      mapInstance.current.flyTo(GALE_CENTER, 6, { duration: 1 });
+      mapInstance.current.flyTo(JEZERO_CENTER, 7, { duration: 1 });
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>ROVER HARİTASI</p>
-          <p className="text-sm mt-1" style={{ color: "#708090" }}>
-            NASA Mars uydu görüntüsü — fare tekerleği ile yakınlaştır, sürükle ile kaydır
+          <p className="text-lg font-bold uppercase tracking-wide" style={{ color: "#BCC8D4" }}>
+            ROVER HARİTASI
+          </p>
+          <p className="text-sm mt-1 max-w-2xl" style={{ color: "#708090" }}>
+            Resmi{" "}
+            <span style={{ color: "#00F2FF" }}>NASA Mars Location</span> (rover yolu, örnekleme, Ingenuity) tarayıcı
+            güvenliği nedeniyle yalnızca <span style={{ color: "#BCC8D4" }}>yeni sekmede</span> açılabilir; aşağıda panel
+            telemetrisi için yerel Mars haritası gösterilir.
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={focusRover} className="n-btn-primary text-xs py-2 px-4">ROVER'A ODAKLAN</button>
-          <button onClick={focusGale} type="button" className="n-btn-primary text-xs py-2 px-4" style={{ borderColor: "#FFAA0040", color: "#FFAA00", background: "#FFAA0010" }}>
-            GALE KRATERİ
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button type="button" onClick={openNASAInNewTab} className="n-btn-primary text-xs py-2 px-4">
+            NASA SİTESİNDE AÇ
+          </button>
+          <button
+            type="button"
+            onClick={copyNasaLink}
+            className="n-btn-primary text-xs py-2 px-4"
+            style={{ borderColor: "#FFAA0040", color: "#FFAA00", background: "#FFAA0010" }}
+          >
+            {copied ? "KOPYALANDI" : "BAĞLANTIYI KOPYALA"}
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-5">
-        {/* Map */}
-        <div className="xl:col-span-3 relative n-hud overflow-hidden" style={{ height: "calc(100vh - 230px)", minHeight: "480px" }}>
-          <div ref={mapRef} className="w-full h-full" />
+      <div
+        className="n-hud px-4 py-3 text-xs sm:text-sm leading-relaxed"
+        style={{ background: "#080C14", border: "1px solid #0D1520", color: "#607080" }}
+      >
+        <span style={{ color: "#FFAA00" }}>Neden iframe yok? </span>
+        NASA, <code style={{ color: "#506070" }}>Content-Security-Policy: frame-ancestors</code> ile haritayı yalnızca{" "}
+        <span style={{ color: "#8899AA" }}>nasa.gov</span> üzerinden çerçevelemeye izin veriyor; bu kural sunucu
+        tarafında tanımlıdır ve üçüncü taraf sitelerde (ör. bu panel) <span style={{ color: "#BCC8D4" }}>kodla
+        kaldırılamaz</span>. Çözüm: resmi aracı yeni sekmede kullanmak veya aşağıdaki yerel haritayı kullanmak.
+      </div>
 
-          {/* HUD overlays */}
-          <div className="absolute top-3 left-14 z-[1000] pointer-events-none">
-            <div className="p-3 pointer-events-auto" style={{ background: "#060910E0", border: "1px solid #0D1520" }}>
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#00F2FF" }}>MARS YÜZEY HARİTASI</p>
-              <p className="text-xs mt-0.5" style={{ color: "#506070" }}>Viking MDIM21 Mozaik — NASA/USGS</p>
-            </div>
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-5">
+        <div
+          className="xl:col-span-3 relative n-hud overflow-hidden flex flex-col gap-3"
+          style={{ height: "calc(100vh - 230px)", minHeight: "480px" }}
+        >
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button type="button" onClick={focusRover} className="n-btn-primary text-xs py-2 px-4">
+              ROVER&apos;A ODAKLAN
+            </button>
+            <button
+              type="button"
+              onClick={focusJezero}
+              className="n-btn-primary text-xs py-2 px-4"
+              style={{ borderColor: "#FFAA0040", color: "#FFAA00", background: "#FFAA0010" }}
+            >
+              JEZERO MERKEZİ
+            </button>
           </div>
 
-          <div className="absolute top-3 right-3 z-[1000] pointer-events-none">
-            <div className="p-3 space-y-1 pointer-events-auto" style={{ background: "#060910E0", border: "1px solid #0D1520", minWidth: "170px" }}>
-              {[
-                { l: "ENLEM", v: roverLat ? `${formatNumber(roverLat, 4)}°K` : "—", c: "#00F2FF" },
-                { l: "BOYLAM", v: roverLon ? `${formatNumber(roverLon, 4)}°D` : "—", c: "#00F2FF" },
-                { l: "SOL", v: sol, c: "#FF00FF" },
-                { l: "MESAFE", v: `${formatNumber(dist, 1)} m`, c: "#00FF88" },
-              ].map(m => (
-                <div key={m.l} className="flex justify-between">
-                  <span className="text-xs font-bold uppercase" style={{ color: "#506070" }}>{m.l}</span>
-                  <span className="text-xs font-bold" style={{ color: m.c }}>{m.v}</span>
-                </div>
-              ))}
+          <div className="relative flex-1 min-h-[320px] overflow-hidden rounded border" style={{ borderColor: "#0D1520" }}>
+            <div ref={mapRef} className="w-full h-full min-h-[320px]" />
+
+            <div className="absolute top-3 left-14 z-[1000] pointer-events-none max-w-[min(100%,20rem)]">
+              <div className="p-3 pointer-events-auto" style={{ background: "#060910E0", border: "1px solid #0D1520" }}>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "#00F2FF" }}>
+                  YEREL ÖNİZLEME
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "#506070" }}>
+                  Viking MDIM21 — simülasyon konumu
+                </p>
+              </div>
+            </div>
+
+            <div className="absolute top-3 right-3 z-[1000] pointer-events-none">
+              <div
+                className="p-3 space-y-1 pointer-events-auto"
+                style={{ background: "#060910E0", border: "1px solid #0D1520", minWidth: "170px" }}
+              >
+                {[
+                  { l: "ENLEM", v: roverLat != null ? `${formatNumber(roverLat, 4)}°K` : "—", c: "#00F2FF" },
+                  { l: "BOYLAM", v: roverLon != null ? `${formatNumber(roverLon, 4)}°D` : "—", c: "#00F2FF" },
+                  { l: "SOL", v: sol, c: "#FF00FF" },
+                  { l: "MESAFE", v: `${formatNumber(dist, 1)} m`, c: "#00FF88" },
+                ].map((m) => (
+                  <div key={m.l} className="flex justify-between gap-2">
+                    <span className="text-xs font-bold uppercase shrink-0" style={{ color: "#506070" }}>
+                      {m.l}
+                    </span>
+                    <span className="text-xs font-bold text-right truncate" style={{ color: m.c }} title={String(m.v)}>
+                      {m.v}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Info panel */}
         <div className="space-y-4">
           <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>HARİTA KONTROL</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>
+              RESMİ NASA HARİTASI
+            </p>
             <div className="space-y-2 text-sm" style={{ color: "#708090" }}>
-              <p><span style={{ color: "#00F2FF" }}>Tekerlek</span> — Yakınlaştır / Uzaklaştır</p>
-              <p><span style={{ color: "#00F2FF" }}>Sürükle</span> — Haritayı kaydır</p>
-              <p><span style={{ color: "#00F2FF" }}>Tıkla</span> — İşaretçi bilgisi</p>
+              <p>
+                Tüm görev katmanları için <span style={{ color: "#00F2FF" }}>NASA sitesinde aç</span> düğmesini
+                kullanın — aynı bağlantı, tarayıcıda tam özellikli çalışır.
+              </p>
             </div>
           </div>
 
           <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>ROVER DURUMU</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>
+              YEREL HARİTA
+            </p>
+            <div className="space-y-2 text-sm" style={{ color: "#708090" }}>
+              <p>
+                <span style={{ color: "#00F2FF" }}>Tekerlek / sürükle</span> — Yakınlaştır ve kaydır
+              </p>
+              <p>
+                <span style={{ color: "#00F2FF" }}>Tıkla</span> — İşaretçi bilgisi
+              </p>
+            </div>
+          </div>
+
+          <div className="n-hud p-5">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>
+              PANEL TELEMETRİSİ (SIM)
+            </p>
             <div className="space-y-2">
               {[
-                { l: "ENLEM", v: roverLat ? `${formatNumber(roverLat, 6)}°K` : "—", c: "#00F2FF" },
-                { l: "BOYLAM", v: roverLon ? `${formatNumber(roverLon, 6)}°D` : "—", c: "#00F2FF" },
+                { l: "ENLEM", v: roverLat != null ? `${formatNumber(roverLat, 6)}°K` : "—", c: "#00F2FF" },
+                { l: "BOYLAM", v: roverLon != null ? `${formatNumber(roverLon, 6)}°D` : "—", c: "#00F2FF" },
                 { l: "SOL (MARS GÜNÜ)", v: sol, c: "#FF00FF" },
                 { l: "İZ NOKTASI", v: trail.length, c: "#8899AA" },
                 { l: "TOPLAM MESAFE", v: `${formatNumber(dist, 1)} m`, c: "#00FF88" },
-              ].map(m => (
-                <div key={m.l} className="flex items-center justify-between px-3 py-2" style={{ background: "#050810", border: "1px solid #0D1520" }}>
-                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "#506070" }}>{m.l}</span>
-                  <span className="text-sm font-bold" style={{ color: m.c }}>{m.v}</span>
+              ].map((m) => (
+                <div
+                  key={m.l}
+                  className="flex items-center justify-between px-3 py-2"
+                  style={{ background: "#050810", border: "1px solid #0D1520" }}
+                >
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "#506070" }}>
+                    {m.l}
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: m.c }}>
+                    {m.v}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>GALE KRATERİ (MSL)</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>
+              JEZERO (M2020)
+            </p>
             <div className="space-y-2 text-sm leading-relaxed" style={{ color: "#708090" }}>
-              <p><span style={{ color: "#BCC8D4" }}>NASA MSL (Curiosity)</span> görev alanı; veri seti bu uzay aracı telemetrisine dayanır.</p>
-              <p>Harita, simüle rover konumunu Gale çevresinde gösterir (yaklaşık koordinatlar).</p>
+              <p>
+                Yerel harita Jezero çevresini gösterir; NASA aracı güncel rover yolu ve helikopteri içerir.
+              </p>
             </div>
           </div>
 
           <div className="n-hud p-5">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>GÖRÜNTÜ KAYNAĞI</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#607080" }}>
+              KAYNAK
+            </p>
             <div className="space-y-1.5 text-xs" style={{ color: "#607080" }}>
-              <p><span style={{ color: "#8899AA" }}>Viking MDIM21</span> renk mozaiği</p>
-              <p>Çözünürlük: 232m/piksel</p>
-              <p>Kaynak: NASA / USGS</p>
+              <a
+                href={NASA_M20_LOCATION_MAP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all underline hover:no-underline"
+                style={{ color: "#00F2FF" }}
+              >
+                mars.nasa.gov/maps/location (M20)
+              </a>
+              <p>NASA / JPL</p>
             </div>
           </div>
         </div>

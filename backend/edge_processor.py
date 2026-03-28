@@ -70,7 +70,7 @@ class EdgeProcessor:
         self._last_rl_state: Optional[Tuple[float, float, bool]] = None
         self._last_rl_action_idx: int = 1
         self._rover_think_sem = asyncio.Semaphore(2)
-        self.rover_thinking_enabled: bool = True
+        self.rover_thinking_enabled: bool = False
 
     def _schedule_rover_think(
         self,

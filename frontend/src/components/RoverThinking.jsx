@@ -27,7 +27,7 @@ function DecisionBox({ decision, uplinkEligible }) {
 export default function RoverThinking({ entries = [], stats = null }) {
   const [visibleSteps, setVisibleSteps] = useState([]);
   const [modal, setModal] = useState(null);
-  const [thinkOn, setThinkOn] = useState(stats?.rover_thinking_enabled !== false);
+  const [thinkOn, setThinkOn] = useState(stats?.rover_thinking_enabled === true);
   const [saving, setSaving] = useState(false);
   const latest = entries[0];
 
@@ -82,7 +82,7 @@ export default function RoverThinking({ entries = [], stats = null }) {
             textShadow: thinkOn ? "0 0 20px #00FF8860" : "none",
           }}
         >
-          🧠 NIRVANA Düşünce Modu
+          NIRVANA Düşünce Modu
         </h1>
         <div className="flex flex-wrap items-center gap-3">
           <button
