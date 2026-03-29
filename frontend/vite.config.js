@@ -23,6 +23,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    /** Playwright ve proxy URL’leri 5173 varsayar; doluysa sessizce 5174’e kaymasın. */
+    strictPort: true,
     proxy: {
       "/api": {
         target: "http://localhost:8000",

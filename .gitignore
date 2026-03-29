@@ -1,17 +1,14 @@
 node_modules/
 dist/
-__pycache__/
-*.pyc
 .env
-venv/
-*.egg-info/
 .vite/
-data.zip
-reference.pdf
-# Sunucu parolası içeren yerel dosya — repoya koymayın
-deploy_fix5.py
-backend/data/2018-05-19_15.00.10/models/
-backend/data/2018-05-19_15.00.10/y_hat/
-backend/data/2018-05-19_15.00.10/smoothed_errors/
-backend/data/train/
-backend/data/test/
+*.log
+
+frontend/node_modules/
+acceptance-test/node_modules/
+acceptance-test/test-results/
+acceptance-test/playwright-report/
+acceptance-test/playwright/.cache/
+
+# Eski backend / venv artığı (manuel silinebilir)
+backend/
