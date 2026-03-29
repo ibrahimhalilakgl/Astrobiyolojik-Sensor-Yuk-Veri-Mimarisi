@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatTimestamp, severityColor } from "../utils/formatters";
+import { formatNumber, formatTimestamp, severityColor } from "../utils/formatters";
 
 const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
