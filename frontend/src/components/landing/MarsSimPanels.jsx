@@ -96,7 +96,7 @@ function HyperdriveScene({ phaseRef }) {
       <directionalLight
         position={[-10, 8, -6]}
         intensity={0.25}
-        color="#5a8f9a"
+        color="#00F2FF"
       />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
@@ -311,7 +311,7 @@ function CaspianScene({ phaseRef }) {
         <GizmoViewcube
           opacity={0.88}
           color="#2a3344"
-          hoverColor="#c9a86c"
+          hoverColor="#00F2FF"
           textColor="#e2e8f0"
           strokeColor="#0f1218"
         />
@@ -388,14 +388,14 @@ function CaspianTelemetryOverlay({ scrollP = 0 }) {
   const j = (base, amp) => (base + (p - 0.5) * amp * 2).toFixed(3);
   return (
     <div className="pointer-events-none absolute bottom-4 left-4 z-10 max-w-[min(92vw,280px)] font-mono text-[9px] leading-relaxed text-[#7dd3a8] sm:text-[10px]">
-      <p className="text-[#5a8f9a]/90">X {j(2.847, 0.018)}</p>
-      <p className="text-[#5a8f9a]/90">Y {j(0.412, 0.012)}</p>
-      <p className="text-[#5a8f9a]/90">Z {j(-4.291, 0.022)}</p>
+      <p className="text-[#00F2FF]/90">X {j(2.847, 0.018)}</p>
+      <p className="text-[#00F2FF]/90">Y {j(0.412, 0.012)}</p>
+      <p className="text-[#00F2FF]/90">Z {j(-4.291, 0.022)}</p>
       <p className="mt-1 text-[#8b949e]">ROLL {j(0.018, 0.006)}</p>
       <p className="text-[#8b949e]">PITCH {j(-0.006, 0.005)}</p>
       <p className="text-[#8b949e]">YAW {j(1.204, 0.035)}</p>
-      <p className="mt-1 text-[#6e7681]">LF_STEER {j(0.02, 0.014)}</p>
-      <p className="text-[#6e7681]">RR_STEER {j(-0.01, 0.012)}</p>
+      <p className="mt-1 text-[#506070]">LF_STEER {j(0.02, 0.014)}</p>
+      <p className="text-[#506070]">RR_STEER {j(-0.01, 0.012)}</p>
     </div>
   );
 }
@@ -446,14 +446,14 @@ export function HyperdrivePanel() {
       className="relative z-10 px-4 py-12 sm:px-8 sm:py-16"
     >
       <div className={`mx-auto max-w-6xl ${panelChrome}`}>
-        <p className="border-b border-white/[0.06] py-3 text-center font-mono text-[11px] font-medium uppercase tracking-[0.45em] text-white/90">
+        <p className="border-b border-[#0D1520] py-3 text-center font-mono text-[11px] font-medium uppercase tracking-[0.45em] text-[#BCC8D4]">
           HYPERDRIVE
         </p>
         <div className="relative h-[min(52vh,480px)] w-full sm:h-[min(56vh,520px)]">
           {mount && (
             <Suspense
               fallback={
-                <div className="flex h-full items-center justify-center bg-[#0a0806] font-mono text-xs text-[#6e7681]">
+                <div className="flex h-full items-center justify-center bg-[#060910] font-mono text-xs text-[#506070]">
                   Sahne yükleniyor…
                 </div>
               }
@@ -473,13 +473,13 @@ export function HyperdrivePanel() {
             </Suspense>
           )}
         </div>
-        <p className="border-t border-white/[0.05] px-4 py-2 text-right font-mono text-[9px] uppercase tracking-[0.25em] text-[#5c5348]">
+        <p className="border-t border-[#0D1520] px-4 py-2 text-right font-mono text-[9px] uppercase tracking-[0.25em] text-[#3A4A5C]">
           Kaydırarak kamera ·{" "}
           <a
             href="https://www.anthropic.com/features/claude-on-mars"
             target="_blank"
             rel="noreferrer"
-            className="text-[#6e7681] underline decoration-white/10 underline-offset-2 hover:text-[#9a8568]"
+            className="text-[#506070] underline decoration-[#0D1520] underline-offset-2 hover:text-[#00F2FF]"
           >
             Anthropic Mars
           </a>{" "}
@@ -507,13 +507,13 @@ export function CaspianPanel() {
       className="relative z-10 px-4 py-12 sm:px-8 sm:py-16"
     >
       <div className={`mx-auto max-w-6xl ${panelChrome}`}>
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2">
-          <div className="font-mono text-[9px] uppercase tracking-widest text-[#6ee7b7] sm:text-[10px]">
-            <span className="text-[#22c55e]">costmap</span> LOCKED
-            <span className="mx-2 text-white/20">|</span>
-            <span className="text-[#38bdf8]">heightmap</span> LOCKED
+        <div className="flex items-center justify-between border-b border-[#0D1520] px-4 py-2">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[#00FF88] sm:text-[10px]">
+            <span className="text-[#00FF88]">costmap</span> LOCKED
+            <span className="mx-2 text-[#0D1520]">|</span>
+            <span className="text-[#00F2FF]">heightmap</span> LOCKED
           </div>
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.45em] text-white/90">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.45em] text-[#BCC8D4]">
             CASPIAN
           </p>
         </div>
@@ -522,7 +522,7 @@ export function CaspianPanel() {
           {mount && (
             <Suspense
               fallback={
-                <div className="flex h-full items-center justify-center bg-[#0a0b0d] font-mono text-xs text-[#6e7681]">
+                <div className="flex h-full items-center justify-center bg-[#060910] font-mono text-xs text-[#506070]">
                   Sahne yükleniyor…
                 </div>
               }
@@ -542,7 +542,7 @@ export function CaspianPanel() {
             </Suspense>
           )}
         </div>
-        <p className="border-t border-white/[0.05] px-4 py-2 text-right font-mono text-[9px] uppercase tracking-[0.25em] text-[#5c5348]">
+        <p className="border-t border-[#0D1520] px-4 py-2 text-right font-mono text-[9px] uppercase tracking-[0.25em] text-[#3A4A5C]">
           Kaydırarak kamera · telemetri senkron · SENTİNEL yeniden üretimi
         </p>
       </div>

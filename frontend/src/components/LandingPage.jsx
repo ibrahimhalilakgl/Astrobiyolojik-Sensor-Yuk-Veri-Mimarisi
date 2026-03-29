@@ -82,12 +82,12 @@ const MARQUEE_SEGMENTS = [
 ];
 
 const INSTRUMENT_FRAMES = [
-  { label: "ÖN TELEMETRİ", sub: "Sol 001 · normalize okuma", tone: "#5a8f9a" },
-  { label: "YAN SSR", sub: "Ring buffer · öncelik sırası", tone: "#6d7ab3" },
-  { label: "ANOMALİ GÖRÜNÜMÜ", sub: "Hibrit skor 0–100", tone: "#b89a6b" },
-  { label: "UPLINK ÖNİZLEME", sub: "Eşik bantları", tone: "#b0707a" },
-  { label: "DSN ZAMAN ÇİZGİSİ", sub: "Gecikme + drain", tone: "#5b8fb8" },
-  { label: "YER PANELİ", sub: "REST + WS", tone: "#8b7cae" },
+  { label: "ÖN TELEMETRİ", sub: "Sol 001 · normalize okuma", tone: "#00F2FF" },
+  { label: "YAN SSR", sub: "Ring buffer · öncelik sırası", tone: "#FF00FF" },
+  { label: "ANOMALİ GÖRÜNÜMÜ", sub: "Hibrit skor 0–100", tone: "#FFAA00" },
+  { label: "UPLINK ÖNİZLEME", sub: "Eşik bantları", tone: "#FF3366" },
+  { label: "DSN ZAMAN ÇİZGİSİ", sub: "Gecikme + drain", tone: "#00B8D4" },
+  { label: "YER PANELİ", sub: "REST + WS", tone: "#8899AA" },
 ];
 
 const PULL_QUOTES = [
@@ -198,17 +198,17 @@ function ProgressRail({ ids, labels, activeVisualIndex }) {
           key={id}
           type="button"
           onClick={() => scrollToId(id)}
-          className="group flex items-center gap-2 rounded-full py-1 pl-1 pr-2 text-left transition hover:bg-white/[0.04]"
+          className="group flex items-center gap-2 rounded-full py-1 pl-1 pr-2 text-left transition hover:bg-[#00F2FF]/08"
           title={labels[i]}
         >
           <span
             className={`h-2 w-2 rounded-full transition ${
               activeVisualIndex === i
-                ? "scale-125 bg-[#c9a86c] shadow-[0_0_12px_rgba(201,168,108,0.45)]"
-                : "bg-white/20 group-hover:bg-white/40"
+                ? "scale-125 bg-[#00F2FF] shadow-[0_0_14px_rgba(0,242,255,0.45)]"
+                : "bg-[#0D1520] group-hover:bg-[#506070]"
             }`}
           />
-          <span className="max-w-[7rem] truncate font-mono text-[9px] uppercase tracking-widest text-[#6e7681] opacity-0 transition group-hover:opacity-100">
+          <span className="max-w-[7rem] truncate font-mono text-[9px] uppercase tracking-widest text-[#506070] opacity-0 transition group-hover:opacity-100">
             {labels[i]}
           </span>
         </button>
@@ -281,10 +281,10 @@ export default function LandingPage() {
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden font-sans antialiased selection:bg-[#3d5a5c]/40 selection:text-[#e6edf3]"
+      className="relative min-h-screen overflow-x-hidden font-sans antialiased selection:bg-[#00F2FF]/20 selection:text-[#E8EEF4]"
       style={{
-        background: "#030201",
-        color: "#e6edf3",
+        background: "#04060A",
+        color: "#BCC8D4",
       }}
     >
       <Suspense fallback={null}>
@@ -309,50 +309,50 @@ export default function LandingPage() {
         transition={{ duration: 0.75, ease: easeOut }}
         className="sticky top-0 z-40"
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#c9a86c]/55 to-transparent" />
-        <div className="border-b border-white/[0.07] bg-[#050301]/55 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.85)] backdrop-blur-2xl backdrop-saturate-150">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00F2FF]/45 to-transparent" />
+        <div className="border-b border-[#0D1520] bg-[#060910]/90 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.75)] backdrop-blur-2xl backdrop-saturate-150">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3.5 sm:px-8 sm:py-4">
             <Link
               to="/"
               className="group flex min-w-0 items-center gap-3.5 sm:gap-4"
             >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.14] bg-gradient-to-br from-white/[0.09] to-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] sm:h-11 sm:w-11">
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#00F2FF]/35 bg-gradient-to-br from-[#00F2FF]/12 to-[#080C14] shadow-[inset_0_1px_0_rgba(0,242,255,0.12)] sm:h-11 sm:w-11">
                 <span
                   className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                   style={{
                     background:
-                      "radial-gradient(120% 80% at 30% 20%, rgba(201,168,108,0.22), transparent 55%)",
+                      "radial-gradient(120% 80% at 30% 20%, rgba(0,242,255,0.2), transparent 55%)",
                   }}
                 />
                 <span
                   className="absolute bottom-0 left-1/2 h-8 w-px -translate-x-1/2 rounded-full opacity-70"
                   style={{
                     background:
-                      "linear-gradient(180deg, transparent, #c9a86c, #5a8f9a)",
+                      "linear-gradient(180deg, transparent, #00F2FF, #FF00FF)",
                   }}
                 />
-                <span className="relative font-editorial text-xl font-semibold leading-none text-[#f5f0e8] sm:text-[1.35rem]">
+                <span className="relative font-editorial text-xl font-semibold leading-none text-[#E8EEF4] sm:text-[1.35rem]">
                   S
                 </span>
               </div>
               <div className="min-w-0 text-left">
-                <p className="font-mono text-[9px] font-medium uppercase tracking-[0.42em] text-[#9a8568] sm:text-[10px]">
+                <p className="font-mono text-[9px] font-medium uppercase tracking-[0.42em] text-[#607080] sm:text-[10px]">
                   SENTİNEL
                 </p>
-                <p className="truncate font-editorial text-lg font-semibold leading-tight tracking-tight text-[#faf6ef] sm:text-xl">
+                <p className="truncate font-editorial text-lg font-semibold leading-tight tracking-tight text-[#E8EEF4] sm:text-xl">
                   Operasyon özeti
                 </p>
               </div>
             </Link>
 
             <nav
-              className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.1] bg-black/35 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-[#0D1520] bg-[#080C14]/95 p-1 shadow-[inset_0_1px_0_rgba(0,242,255,0.06)] backdrop-blur-md"
               aria-label="Ana gezinme"
             >
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Link
                   to="/veri_akisi"
-                  className="block rounded-full px-3.5 py-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-[#b8b0a4] transition-colors hover:bg-white/[0.06] hover:text-[#f5f0e8] sm:px-4 sm:text-[10px]"
+                  className="block rounded-full px-3.5 py-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-[#8899AA] transition-colors hover:bg-[#00F2FF]/10 hover:text-[#00F2FF] sm:px-4 sm:text-[10px]"
                 >
                   Veri akışı
                 </Link>
@@ -360,10 +360,10 @@ export default function LandingPage() {
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Link
                   to="/gosterge_paneli"
-                  className="group/cta relative block overflow-hidden rounded-full px-4 py-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[#0c0a08] shadow-[0_0_28px_-6px_rgba(201,168,108,0.55)] transition-[filter,box-shadow] duration-300 hover:shadow-[0_0_40px_-4px_rgba(201,168,108,0.7)] hover:brightness-[1.06] sm:px-5 sm:text-[10px]"
+                  className="group/cta relative block overflow-hidden rounded-full px-4 py-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[#04060A] shadow-[0_0_28px_-6px_rgba(0,242,255,0.4)] transition-[filter,box-shadow] duration-300 hover:shadow-[0_0_40px_-4px_rgba(0,242,255,0.55)] hover:brightness-[1.06] sm:px-5 sm:text-[10px]"
                   style={{
                     background:
-                      "linear-gradient(135deg, #e8d4b4 0%, #c9a86c 38%, #5a8f9a 100%)",
+                      "linear-gradient(135deg, #7ee8ff 0%, #00F2FF 42%, #0099b8 100%)",
                   }}
                 >
                   <span className="pointer-events-none absolute -left-1/2 top-0 h-full w-1/2 skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 transition-all duration-500 ease-out group-hover/cta:left-full group-hover/cta:opacity-100" />
@@ -381,7 +381,7 @@ export default function LandingPage() {
       >
         <motion.div
           style={{ opacity: heroOpacity, y: heroY, scale: heroScale }}
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_20%,rgba(201,168,108,0.08),transparent_50%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_20%,rgba(0,242,255,0.07),transparent_50%)]"
         />
 
         <div className="relative mx-auto w-full max-w-5xl text-center">
@@ -389,13 +389,13 @@ export default function LandingPage() {
             initial={{ opacity: 0, letterSpacing: "0.5em" }}
             animate={{ opacity: 1, letterSpacing: "0.28em" }}
             transition={{ duration: 1.1, ease: easeOut }}
-            className="mb-6 font-mono text-[10px] font-semibold uppercase text-[#8b7355]"
+            className="mb-6 font-mono text-[10px] font-semibold uppercase text-[#607080]"
           >
             Astrobiyolojik sensör · uç işlem · yer istasyonu
           </motion.p>
 
           <motion.h1
-            className="font-editorial text-[clamp(2.1rem,6.5vw,4.25rem)] font-semibold leading-[0.95] tracking-tight text-[#f5f0e8] [text-shadow:0_4px_48px_rgba(0,0,0,0.9)]"
+            className="font-editorial text-[clamp(2.1rem,6.5vw,4.25rem)] font-semibold leading-[0.95] tracking-tight text-[#E8EEF4] [text-shadow:0_4px_48px_rgba(0,0,0,0.9),0_0_40px_rgba(0,242,255,0.08)]"
             style={{ opacity: heroOpacity, y: heroY, scale: heroScale }}
           >
             <span className="block overflow-hidden">
@@ -419,7 +419,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 28 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.85, duration: 0.8, ease: easeOut }}
-              className="mt-4 block font-editorial text-[clamp(1.15rem,3.2vw,1.85rem)] font-normal italic text-[#c9a86c]/95"
+              className="mt-4 block font-editorial text-[clamp(1.15rem,3.2vw,1.85rem)] font-normal italic text-[#00F2FF]/95"
               style={{ opacity: heroOpacity }}
             >
               gecikmeli bağlantıda güvenle iletim
@@ -430,7 +430,7 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.15, duration: 0.8 }}
-            className="mx-auto mt-8 max-w-2xl font-mono text-sm leading-relaxed text-[#8b949e]"
+            className="mx-auto mt-8 max-w-2xl font-mono text-sm leading-relaxed text-[#708090]"
             style={{ opacity: heroOpacity }}
           >
             Bu sayfa, gösterge panelindeki sekiz adımı ve yapay zekâ katmanını — Mars hikâyesi
@@ -446,9 +446,9 @@ export default function LandingPage() {
           >
             <Link
               to="/gosterge_paneli"
-              className="inline-flex items-center justify-center rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-wider text-[#0e1117] shadow-lg shadow-black/30"
+              className="inline-flex items-center justify-center rounded-full px-8 py-3.5 text-xs font-bold uppercase tracking-wider text-[#04060A] shadow-lg shadow-[0_0_24px_rgba(0,242,255,0.25)]"
               style={{
-                background: "linear-gradient(135deg,#e8d5b0,#5a8f9a)",
+                background: "linear-gradient(135deg,#7ee8ff,#00F2FF)",
               }}
             >
               Canlı panele geç
@@ -457,7 +457,7 @@ export default function LandingPage() {
               href="#mars-story"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center justify-center rounded-full border border-white/[0.12] px-8 py-3.5 text-xs font-semibold uppercase tracking-wider text-[#e6dfd3] hover:border-[#c9a86c]/45 hover:bg-white/[0.03]"
+              className="inline-flex items-center justify-center rounded-full border border-[#0D1520] px-8 py-3.5 text-xs font-semibold uppercase tracking-wider text-[#BCC8D4] hover:border-[#00F2FF]/45 hover:bg-[#00F2FF]/06"
             >
               Hikâyeyi kaydır
             </motion.a>
@@ -467,7 +467,7 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.6, duration: 0.6 }}
-            className="mt-14 font-mono text-[10px] uppercase tracking-[0.35em] text-[#5c5348]"
+            className="mt-14 font-mono text-[10px] uppercase tracking-[0.35em] text-[#3A4A5C]"
           >
             Edge → AI → Dünya
           </motion.p>
@@ -483,7 +483,7 @@ export default function LandingPage() {
           <motion.div
             animate={{ y: [0, 6, 0] }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            className="flex flex-col items-center gap-1 text-[#6e7681]"
+            className="flex flex-col items-center gap-1 text-[#506070]"
           >
             <span className="font-mono text-[9px] uppercase tracking-widest">
               Kaydır
@@ -495,10 +495,10 @@ export default function LandingPage() {
 
       <div
         id="mars-marquee"
-        className="relative z-10 border-y border-white/[0.06] bg-black/30 py-3 backdrop-blur-[2px]"
+        className="relative z-10 border-y border-[#0D1520] bg-[#060910]/80 py-3 backdrop-blur-[2px]"
       >
         <div className="overflow-hidden">
-          <div className="flex w-max animate-landing-marquee font-mono text-[10px] font-medium uppercase tracking-[0.35em] text-[#6e7681]">
+          <div className="flex w-max animate-landing-marquee font-mono text-[10px] font-medium uppercase tracking-[0.35em] text-[#506070]">
             {[...MARQUEE_SEGMENTS, ...MARQUEE_SEGMENTS].map((t, i) => (
               <span key={`${t}-${i}`} className="px-10">
                 {t}
@@ -523,21 +523,21 @@ export default function LandingPage() {
             <motion.p
               variants={fadeUp}
               custom={0}
-              className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-[#8b7355]"
+              className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-[#607080]"
             >
               Çoklu kanal önizleme
             </motion.p>
             <motion.h2
               variants={fadeUp}
               custom={1}
-              className="font-editorial text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-tight text-[#f5f0e8] [text-shadow:0_2px_32px_rgba(0,0,0,0.85)]"
+              className="font-editorial text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-tight text-[#E8EEF4] [text-shadow:0_2px_32px_rgba(0,0,0,0.85)]"
             >
               Telemetri ve arayüz şeridi
             </motion.h2>
             <motion.p
               variants={fadeUp}
               custom={2}
-              className="mt-3 font-mono text-xs leading-relaxed text-[#a8a8a0] sm:text-sm"
+              className="mt-3 font-mono text-xs leading-relaxed text-[#8899AA] sm:text-sm"
             >
               Tam genişlik film kareleri — her panel operasyon akışındaki bir görünümü temsil eder.
               Kaydırarak ilerleyin.
@@ -553,9 +553,9 @@ export default function LandingPage() {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true, margin: "-8%" }}
               transition={{ delay: i * 0.05, duration: 0.7, ease: easeOut }}
-              className="relative h-[min(52vh,420px)] min-w-[min(92vw,920px)] flex-shrink-0 snap-center border-r border-white/[0.06] first:border-l first:border-white/[0.06]"
+              className="relative h-[min(52vh,420px)] min-w-[min(92vw,920px)] flex-shrink-0 snap-center border-r border-[#0D1520] first:border-l first:border-[#0D1520]"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#0a0806] to-[#12100c]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#060910] to-[#080C14]" />
               <motion.div
                 className="absolute inset-0"
                 style={{
@@ -577,7 +577,7 @@ export default function LandingPage() {
                 <p className="font-mono text-[11px] uppercase tracking-widest text-white/50">
                   SENTİNEL · simülasyon
                 </p>
-                <p className="mt-2 font-editorial text-xl text-[#f5f0e8] sm:text-2xl">
+                <p className="mt-2 font-editorial text-xl text-[#E8EEF4] sm:text-2xl">
                   {f.sub}
                 </p>
               </div>
@@ -591,7 +591,7 @@ export default function LandingPage() {
             </motion.div>
           ))}
         </div>
-        <p className="px-5 pt-4 text-center font-mono text-[9px] uppercase tracking-[0.35em] text-[#5c5348] sm:px-10 sm:text-left">
+        <p className="px-5 pt-4 text-center font-mono text-[9px] uppercase tracking-[0.35em] text-[#3A4A5C] sm:px-10 sm:text-left">
           Yatay kaydır
         </p>
       </section>
@@ -618,26 +618,26 @@ export default function LandingPage() {
               <motion.p
                 variants={fadeUp}
                 custom={0}
-                className="font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-[#8b7355]"
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-[#607080]"
               >
                 Uçtan uca hikâye
               </motion.p>
               <motion.h2
                 variants={fadeUp}
                 custom={1}
-                className="font-editorial text-[clamp(1.85rem,4.5vw,3rem)] font-semibold leading-tight text-[#f5f0e8] [text-shadow:0_2px_28px_rgba(0,0,0,0.75)]"
+                className="font-editorial text-[clamp(1.85rem,4.5vw,3rem)] font-semibold leading-tight text-[#E8EEF4] [text-shadow:0_2px_28px_rgba(0,0,0,0.75)]"
               >
                 Veriyi işleyin, sıraya alın, Dünya&apos;ya iletin
               </motion.h2>
               <motion.p
                 variants={fadeUp}
                 custom={2}
-                className="mt-4 font-mono text-sm leading-relaxed text-[#a8a8a0]"
+                className="mt-4 font-mono text-sm leading-relaxed text-[#8899AA]"
               >
                 Sıra, paneldeki{" "}
-                <strong className="font-semibold text-[#d4bc8c]">VERİ_AKIŞI</strong>{" "}
+                <strong className="font-semibold text-[#00F2FF]">VERİ_AKIŞI</strong>{" "}
                 ekranı ile aynıdır. Arka plandaki{" "}
-                <strong className="font-semibold text-[#c9a86c]">
+                <strong className="font-semibold text-[#FFAA00]">
                   NASA Perseverance
                 </strong>{" "}
                 modeli sayfa boyunca kaydırmayla döner ve kamera yörüngesi değişir.
@@ -663,12 +663,12 @@ export default function LandingPage() {
                       transition: { duration: 0.72, ease: easeOut },
                     },
                   }}
-                  className="scroll-mt-28 border-b border-white/[0.06] py-16 first:pt-2"
+                  className="scroll-mt-28 border-b border-[#0D1520] py-16 first:pt-2"
                 >
                   <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                     <motion.div
                       layout
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-white/[0.1]"
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-[#0D1520]"
                       style={{
                         background: `${step.color}14`,
                         boxShadow:
@@ -688,13 +688,13 @@ export default function LandingPage() {
                       />
                     </motion.div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-[#6e7681]">
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-[#506070]">
                         Adım {String(i + 1).padStart(2, "0")} · {step.subtitle}
                       </p>
-                      <h3 className="mt-1 font-editorial text-2xl font-semibold text-[#f5f0e8] sm:text-3xl">
+                      <h3 className="mt-1 font-editorial text-2xl font-semibold text-[#E8EEF4] sm:text-3xl">
                         {step.title}
                       </h3>
-                      <p className="mt-3 font-mono text-sm leading-relaxed text-[#8b949e]">
+                      <p className="mt-3 font-mono text-sm leading-relaxed text-[#708090]">
                         {step.short}
                       </p>
                       <button
@@ -702,7 +702,7 @@ export default function LandingPage() {
                         onClick={() =>
                           setExpandedId(open ? null : step.id)
                         }
-                        className="mt-4 inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-[#c9a86c] hover:text-[#e8d5b0]"
+                        className="mt-4 inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider text-[#00F2FF] hover:text-[#7ee8ff]"
                       >
                         {open ? "Detayı kapat" : "Teknik detay"}
                         <motion.span
@@ -721,7 +721,7 @@ export default function LandingPage() {
                             transition={{ duration: 0.35, ease: easeOut }}
                             className="overflow-hidden"
                           >
-                            <p className="mt-4 border-l-2 border-[#c9a86c]/40 pl-4 font-mono text-sm leading-relaxed text-[#9aa7b3]">
+                            <p className="mt-4 border-l-2 border-[#00F2FF]/35 pl-4 font-mono text-sm leading-relaxed text-[#8899AA]">
                               {step.detail}
                             </p>
                           </motion.div>
@@ -729,7 +729,7 @@ export default function LandingPage() {
                       </AnimatePresence>
                       <Link
                         to={step.panelPath}
-                        className="mt-5 inline-block font-mono text-xs font-semibold text-[#5a8f9a] underline decoration-[#5a8f9a]/35 underline-offset-4 hover:text-[#a8c4c8]"
+                        className="mt-5 inline-block font-mono text-xs font-semibold text-[#00F2FF] underline decoration-[#00F2FF]/35 underline-offset-4 hover:text-[#BCC8D4]"
                       >
                         {step.panelLabel} →
                       </Link>
@@ -753,7 +753,7 @@ export default function LandingPage() {
                   transition: { duration: 0.8, ease: easeOut },
                 },
               }}
-              className="relative scroll-mt-28 w-screen max-w-none border-y border-[#c9a86c]/25 bg-black/35 py-12 backdrop-blur-sm sm:py-16"
+              className="relative scroll-mt-28 w-screen max-w-none border-y border-[#00F2FF]/22 bg-[#060910]/75 py-12 backdrop-blur-sm sm:py-16"
               style={{
                 marginLeft: "calc(50% - 50vw)",
                 marginRight: "calc(50% - 50vw)",
@@ -762,7 +762,7 @@ export default function LandingPage() {
             >
               <motion.div
                 className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full opacity-[0.15] blur-3xl"
-                style={{ background: "#c9a86c" }}
+                style={{ background: "#00F2FF" }}
                 animate={{
                   scale: aiActive ? [1, 1.08, 1] : 1,
                   opacity: aiActive ? [0.12, 0.22, 0.12] : 0.12,
@@ -770,13 +770,13 @@ export default function LandingPage() {
                 transition={{ duration: 4, repeat: aiActive ? Infinity : 0 }}
               />
               <div className="relative mx-auto max-w-3xl px-5 sm:px-8">
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.35em] text-[#d4bc8c]">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.35em] text-[#00F2FF]">
                   Akış 03 → 04 arası
                 </p>
-                <h3 className="mt-2 font-editorial text-2xl font-semibold text-[#f5f0e8] sm:text-3xl">
+                <h3 className="mt-2 font-editorial text-2xl font-semibold text-[#E8EEF4] sm:text-3xl">
                   {LANDING_AI_BLOCK.title}
                 </h3>
-                <p className="mt-3 max-w-3xl font-mono text-sm leading-relaxed text-[#8b949e]">
+                <p className="mt-3 max-w-3xl font-mono text-sm leading-relaxed text-[#708090]">
                   {LANDING_AI_BLOCK.subtitle}
                 </p>
                 <motion.ul
@@ -793,13 +793,13 @@ export default function LandingPage() {
                         key={item.head}
                         variants={fadeUp}
                         whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                        className="border border-white/[0.08] bg-black/25 p-4"
+                        className="border border-[#0D1520] bg-[#080C14]/90 p-4"
                       >
-                        <div className="mb-2 flex items-center gap-2 text-[#d4bc8c]">
+                        <div className="mb-2 flex items-center gap-2 text-[#00F2FF]">
                           <AI className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                           <p className="text-sm font-semibold">{item.head}</p>
                         </div>
-                        <p className="font-mono text-xs leading-relaxed text-[#8b949e] sm:text-sm">
+                        <p className="font-mono text-xs leading-relaxed text-[#708090] sm:text-sm">
                           {item.text}
                         </p>
                       </motion.li>
@@ -809,13 +809,13 @@ export default function LandingPage() {
                 <div className="mt-8 flex flex-wrap gap-4">
                   <Link
                     to="/rover_zekasi"
-                    className="font-mono text-xs font-semibold text-[#a8c4c8] underline decoration-[#5a8f9a]/40 underline-offset-4 hover:text-[#f5f0e8]"
+                    className="font-mono text-xs font-semibold text-[#8899AA] underline decoration-[#00F2FF]/35 underline-offset-4 hover:text-[#E8EEF4]"
                   >
                     Rover zekâsı →
                   </Link>
                   <Link
                     to="/yer_istasyonu_bulut"
-                    className="font-mono text-xs font-semibold text-[#a8c4c8] underline decoration-[#6d7ab3]/40 underline-offset-4 hover:text-[#f5f0e8]"
+                    className="font-mono text-xs font-semibold text-[#8899AA] underline decoration-[#FF00FF]/35 underline-offset-4 hover:text-[#E8EEF4]"
                   >
                     Yer bulutu →
                   </Link>
@@ -831,12 +831,12 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, scale: 1, y: 0 }}
                   viewport={{ once: false, amount: 0.35 }}
                   transition={{ duration: 0.75, ease: easeOut }}
-                  className="mx-auto max-w-3xl border-l-2 border-[#c9a86c]/50 pl-6 sm:pl-10"
+                  className="mx-auto max-w-3xl border-l-2 border-[#00F2FF]/40 pl-6 sm:pl-10"
                 >
-                  <p className="font-editorial text-[clamp(1.35rem,3.6vw,2.1rem)] font-medium leading-snug text-[#e6dfd3]">
+                  <p className="font-editorial text-[clamp(1.35rem,3.6vw,2.1rem)] font-medium leading-snug text-[#BCC8D4]">
                     {q.text}
                   </p>
-                  <footer className="mt-4 font-mono text-[10px] uppercase tracking-[0.25em] text-[#6e7681]">
+                  <footer className="mt-4 font-mono text-[10px] uppercase tracking-[0.25em] text-[#506070]">
                     — {q.cite}
                   </footer>
                 </motion.blockquote>
@@ -850,16 +850,16 @@ export default function LandingPage() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="relative z-10 mt-8 border-t border-white/[0.06] pt-14 pb-20 text-center"
+          className="relative z-10 mt-8 border-t border-[#0D1520] pt-14 pb-20 text-center"
         >
-          <p className="font-mono text-xs text-[#6e7681]">
+          <p className="font-mono text-xs text-[#506070]">
             SENTİNEL — eğitim ve simülasyon prototipi. Canlı Mars bağlantısı içermez.
           </p>
-          <p className="mx-auto mt-3 max-w-lg font-mono text-[10px] leading-relaxed text-[#5c5348]">
+          <p className="mx-auto mt-3 max-w-lg font-mono text-[10px] leading-relaxed text-[#3A4A5C]">
             Perseverance 3B modeli NASA / JPL kaynaklıdır;{" "}
             <a
               href="https://science.nasa.gov/3d-resources/"
-              className="text-[#8b7355] underline decoration-white/15 underline-offset-2 hover:text-[#c9a86c]"
+              className="text-[#607080] underline decoration-[#0D1520] underline-offset-2 hover:text-[#00F2FF]"
               target="_blank"
               rel="noreferrer"
             >
@@ -870,7 +870,7 @@ export default function LandingPage() {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-6 inline-block">
             <Link
               to="/gosterge_paneli"
-              className="inline-flex rounded-full border border-white/[0.1] px-8 py-3 font-mono text-xs font-bold uppercase tracking-wider text-[#f5f0e8] hover:border-[#c9a86c]/45 hover:bg-white/[0.04]"
+              className="inline-flex rounded-full border border-[#0D1520] px-8 py-3 font-mono text-xs font-bold uppercase tracking-wider text-[#E8EEF4] hover:border-[#00F2FF]/45 hover:bg-[#00F2FF]/08"
             >
               Operasyon paneline geç
             </Link>

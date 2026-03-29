@@ -29,7 +29,7 @@ export default function InstrumentStripViz({ tone, index }) {
   const gradId = `inst-grad-${index}`;
 
   return (
-    <div className="pointer-events-none absolute inset-[9%_5%] z-[8] overflow-hidden rounded-md border border-white/[0.12] bg-[#050608]/95 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+    <div className="pointer-events-none absolute inset-[9%_5%] z-[8] overflow-hidden rounded-md border border-[#0D1520] bg-[#060910]/95 shadow-[inset_0_0_0_1px_rgba(0,242,255,0.06)]">
       <div
         className="absolute inset-0 opacity-[0.2]"
         style={{

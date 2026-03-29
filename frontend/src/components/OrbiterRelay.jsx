@@ -19,14 +19,19 @@ export default function OrbiterRelay({ orbiterStats, stats }) {
 
   useEffect(() => {
     let cancel = false;
-    fetch("/api/orbiter-log?limit=50")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => {
-        if (!cancel && Array.isArray(rows)) setLogs(rows);
-      })
-      .catch(() => {});
+    const load = () => {
+      fetch("/api/orbiter-log?limit=50")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows) => {
+          if (!cancel && Array.isArray(rows)) setLogs(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 25000);
     return () => {
       cancel = true;
+      clearInterval(id);
     };
   }, [o?.last_pass_id]);
 

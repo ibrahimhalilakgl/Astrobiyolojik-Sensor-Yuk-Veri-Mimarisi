@@ -8,7 +8,7 @@ export const LANDING_FLOW_STEPS = [
     short: "MSL tabanlı 12 kanal; normalize telemetri ve zaman damgası.",
     detail:
       "NASA SMAP/MSL veri setinden 12 MSL kanalı okunur. Değerler [-1, 1] aralığında; CCSDS benzeri paket yapısı ile edge simülatörüne akar.",
-    color: "#5a8f9a",
+    color: "#00F2FF",
     panelPath: "/telemetri",
     panelLabel: "Telemetri paneli",
   },
@@ -19,7 +19,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Ring buffer ile son okumalar; kritik skorlar öncelikli sıraya alınır.",
     detail:
       "Sensör tipi başına dairesel tampon (ör. 500 okuma). Yüksek anomali skoru anında sonraki aşamaya; düşük öncelik sıraya kalır.",
-    color: "#6d7ab3",
+    color: "#9060FF",
     panelPath: "/veri_akisi",
     panelLabel: "Veri akışı animasyonu",
   },
@@ -30,7 +30,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Önceden hesaplanmış LSTM hata sinyali ile istatistiksel sapma birleştirilir.",
     detail:
       "Çalışma anında .h5 yüklenmez; smoothed error (.npy) ve z-score hibrit skor 0–100 aralığında birleştirilir.",
-    color: "#b89a6b",
+    color: "#FFAA00",
     panelPath: "/anomali_tespit",
     panelLabel: "Anomali merkezi",
   },
@@ -41,7 +41,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Skor bantlarına göre düşürme, bekleme veya uplink kuyruğuna alma.",
     detail:
       "Skor < 30 iletim dışı; 30–50 şüpheli tampon; ≥ 50 yüksek öncelikli uplink adayı. Enerji ve sıkıştırma politikası ile birlikte çalışır.",
-    color: "#b0707a",
+    color: "#FF3366",
     panelPath: "/uplink_kuyrugu",
     panelLabel: "Uplink kuyruğu",
   },
@@ -52,7 +52,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Anomali tipine göre öncelik; çoklu sensör uyumu yüksek önem derecesi verir.",
     detail:
       "Organik imza, metan artışı, spektral sapma vb. tipler bilimsel öncelik skoruna (ör. /10) dönüştürülür.",
-    color: "#8f6fa8",
+    color: "#FF00FF",
     panelPath: "/anomali_tespit",
     panelLabel: "Alarm listesi",
   },
@@ -63,7 +63,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Seçilmiş paketler delta kodlanır ve zlib ile sıkıştırılır.",
     detail:
       "float64 çiftleri delta + zlib seviye 6; stats_update ile sıkıştırma oranı ve tasarruf yüzdesi canlı izlenir.",
-    color: "#6b9f7a",
+    color: "#00FF88",
     panelPath: "/iletim_analizi",
     panelLabel: "İletim analizi",
   },
@@ -74,7 +74,7 @@ export const LANDING_FLOW_STEPS = [
     short: "Gecikmeli bağlantı modeli; store-and-forward ile güvenli iletim.",
     detail:
       "Tek yön ışık gecikmesi dakikalar mertebesinde; simülasyonda periyodik drain ile paketler iletilmiş sayılır.",
-    color: "#5b8fb8",
+    color: "#00B8D4",
     panelPath: "/iletim_analizi",
     panelLabel: "DSN özeti",
   },
@@ -85,7 +85,7 @@ export const LANDING_FLOW_STEPS = [
     short: "PostgreSQL, REST ve WebSocket ile canlı operasyon paneli.",
     detail:
       "Okumalar ve anomaliler veritabanında; WebSocket ile gösterge paneline düşük gecikmeli yayın.",
-    color: "#8b7cae",
+    color: "#8899AA",
     panelPath: "/gosterge_paneli",
     panelLabel: "Gösterge paneli",
   },

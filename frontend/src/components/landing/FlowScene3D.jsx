@@ -45,7 +45,7 @@ function FlowNode({ position, color, delay = 0, active = false }) {
   );
 }
 
-function AiOrb({ position, color = "#c9a86c", active = false }) {
+function AiOrb({ position, color = "#00F2FF", active = false }) {
   const mesh = useRef(null);
   const groupRef = useRef(null);
   const emissiveRef = useRef(0.12);

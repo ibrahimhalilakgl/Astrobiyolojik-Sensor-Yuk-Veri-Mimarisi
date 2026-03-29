@@ -33,10 +33,8 @@ class OrbiterProcessor:
         return self._last_pass_id
 
     def ingest_forwarded(self, packets: List[OrbiterPacket]) -> None:
-        now = time.monotonic()
-        if now - self._window_start >= self.window_seconds:
-            self._flush_window()
-            self._window_start = now
+        # Pencere sonu ve kalıcı log yalnızca tick_flush_if_due() ile yapılır; aksi halde
+        # _flush_window çıktısı yok sayılıyordu ve orbiter_relay_log boş kalıyordu.
         for p in packets:
             self._buffer.append(p)
             self._total_forwarded += 1
